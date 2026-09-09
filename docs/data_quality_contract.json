@@ -1,0 +1,14 @@
+{
+  "dataset": "acs2024_black_adults_curated",
+  "grain": "one ACS PUMS person record, Black alone (RAC1P=2), age 18+",
+  "weight": "PWGTP",
+  "checks": {
+    "rows": 240035,
+    "weighted_population": 31555652,
+    "race_rule": "RAC1P == 2",
+    "age_rule": "AGEP >= 18",
+    "sex_values": ["Female", "Male"],
+    "marital_values": ["Divorced", "Married", "Never married", "Separated", "Widowed"],
+    "pwgtp_positive": true
+  }
+}
