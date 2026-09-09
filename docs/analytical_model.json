@@ -1,0 +1,9 @@
+{
+  "fact_person_outcomes": ["person_surrogate_key", "survey_year", "person_weight", "age", "sex_key", "marital_key", "education_key", "income", "earnings", "employment_key", "geography_key", "fertility_flag", "relationship_code"],
+  "dim_sex": ["sex_key", "sex_label"],
+  "dim_age_band": ["age_band_key", "age_band", "sort_order"],
+  "dim_marital_status": ["marital_key", "marital_status", "currently_married", "never_married"],
+  "dim_education": ["education_key", "education_band", "college_plus", "graduate_degree"],
+  "dim_geography": ["geography_key", "state_fips", "puma"],
+  "dim_income_band": ["income_band_key", "income_band", "lower_bound", "upper_bound"]
+}
