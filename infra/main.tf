@@ -1,6 +1,14 @@
 terraform {
   required_version = ">= 1.8.0"
 
+  backend "s3" {
+    bucket       = "ccooper-black-outcomes-terraform-state-780976819607"
+    key          = "black-outcomes-intelligence/dev/terraform.tfstate"
+    region       = "us-east-2"
+    encrypt      = true
+    use_lockfile = true
+  }
+
   required_providers {
     aws = {
       source = "hashicorp/aws"
