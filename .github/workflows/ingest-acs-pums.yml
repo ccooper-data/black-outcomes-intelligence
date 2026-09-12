@@ -1,0 +1,48 @@
+name: Ingest ACS PUMS
+
+on:
+  workflow_dispatch:
+    inputs:
+      year:
+        description: "ACS PUMS year"
+        required: true
+        default: "2024"
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::780976819607:role/black-outcomes-github-deploy
+          aws-region: us-east-2
+
+      - name: Ingest ACS PUMS to Bronze
+        env:
+          BOI_S3_BUCKET: black-outcomes-intelligence-dev-4623dd8370ffd332f292468c61
+        run: python -m src.ingest.acs_pums --year "${{ inputs.year }}"
+
+      - name: Verify Bronze objects
+        env:
+          BOI_S3_BUCKET: black-outcomes-intelligence-dev-4623dd8370ffd332f292468c61
+        run: |
+          aws s3api head-object --bucket "$BOI_S3_BUCKET" --key "bronze/acs_pums/year=${{ inputs.year }}/release=1-year/csv_pus.zip"
+          aws s3api head-object --bucket "$BOI_S3_BUCKET" --key "bronze/acs_pums/year=${{ inputs.year }}/release=1-year/manifest.json"
