@@ -46,12 +46,44 @@ c4.metric("Mean personal income", f"${float(n.weighted_mean_personal_income):,.0
 
 st.subheader("State comparison")
 metric = st.selectbox("Rank states by", ["Black population", "Marriage rate", "Bachelor's+ rate", "Mean personal income"])
-metric_map = {"Black population":"black_population", "Marriage rate":"married_rate", "Bachelor's+ rate":"bachelors_plus_rate", "Mean personal income":"weighted_mean_personal_income"}
-column = metric_map[metric]
-ranked = states.sort_values(column, ascending=False).copy()
-st.bar_chart(ranked.set_index("state_name")[[column]].head(15))
+metric_config = {
+    "Black population": ("black_population", "Black adult population", "compact"),
+    "Marriage rate": ("married_rate", "Marriage rate", "percent"),
+    "Bachelor's+ rate": ("bachelors_plus_rate", "Bachelor's+ rate", "percent"),
+    "Mean personal income": ("weighted_mean_personal_income", "Mean personal income", "currency"),
+}
+column, axis_title, value_type = metric_config[metric]
+ranked = states.dropna(subset=["state_name", column]).nlargest(10, column).sort_values(column, ascending=True).copy()
 
-selected = st.selectbox("Explore a state", sorted(states.state_name.dropna().tolist()))
+# Horizontal bars keep every state label fully readable while preserving a clear #1–#10 ranking.
+chart_data = ranked[["state_name", column]].set_index("state_name")
+st.markdown(f"#### Top 10 states — {metric}")
+st.bar_chart(
+    chart_data,
+    horizontal=True,
+    x_label=axis_title,
+    y_label="State",
+    height=430,
+)
+
+# Provide exact values beneath the visualization so rankings are unambiguous.
+top10 = ranked.sort_values(column, ascending=False)[["state_name", column]].reset_index(drop=True)
+top10.index = top10.index + 1
+top10.index.name = "Rank"
+if value_type == "percent":
+    display = top10.copy()
+    display[column] = display[column].map(lambda x: f"{x:.1%}")
+elif value_type == "currency":
+    display = top10.copy()
+    display[column] = display[column].map(lambda x: f"${x:,.0f}")
+else:
+    display = top10.copy()
+    display[column] = display[column].map(lambda x: f"{int(x):,}")
+display = display.rename(columns={"state_name": "State", column: axis_title})
+st.dataframe(display, use_container_width=True)
+
+st.subheader("Explore a state")
+selected = st.selectbox("Select a state", sorted(states.state_name.dropna().tolist()), label_visibility="collapsed")
 r = states.loc[states.state_name == selected].iloc[0]
 a, b, c, d = st.columns(4)
 a.metric("Black adult population", f"{int(r.black_population):,}")
@@ -59,6 +91,7 @@ b.metric("Married", f"{float(r.married_rate):.1%}")
 c.metric("Bachelor's+", f"{float(r.bachelors_plus_rate):.1%}")
 d.metric("Mean personal income", f"${float(r.weighted_mean_personal_income):,.0f}")
 
+st.info("City/metro rankings are not shown yet because the current Gold dataset is state-level. We will only add city/metro comparisons after incorporating a Census geography source that supports those estimates accurately.")
 st.caption("Dashboard data are a versioned snapshot of aggregated Gold outputs; the public application requires no AWS credentials and has no access to Census microdata.")
 with st.expander("Methodology"):
     st.markdown("Estimates use 2024 ACS 1-Year PUMS person records, restricted to RAC1P=2 (Black alone) and age 18+. Population counts and rates use the Census person weight PWGTP. Income is a PWGTP-weighted mean of PINCP among records with non-null personal income. These are descriptive survey estimates, not causal claims.")
