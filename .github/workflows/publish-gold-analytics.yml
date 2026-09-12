@@ -1,0 +1,58 @@
+name: Publish Gold Analytics
+
+on:
+  workflow_dispatch:
+    inputs:
+      year:
+        description: "ACS PUMS year"
+        required: true
+        default: "2024"
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      AWS_REGION: us-east-2
+      DATABASE: black_outcomes_dev
+      BUCKET: black-outcomes-intelligence-dev-4623dd8370ffd332f292468c61
+      RESULTS_PREFIX: athena-results/published
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::780976819607:role/black-outcomes-github-deploy
+          aws-region: us-east-2
+      - name: Export validated Gold analytics
+        run: |
+          set -euo pipefail
+          run_query() {
+            local sql="$1" id state
+            id=$(aws athena start-query-execution --query-string "$sql" --query-execution-context Database="$DATABASE" --result-configuration OutputLocation="s3://$BUCKET/$RESULTS_PREFIX/" --query 'QueryExecutionId' --output text)
+            for i in {1..30}; do
+              state=$(aws athena get-query-execution --query-execution-id "$id" --query 'QueryExecution.Status.State' --output text)
+              [ "$state" = "SUCCEEDED" ] && { echo "$id"; return 0; }
+              if [ "$state" = "FAILED" ] || [ "$state" = "CANCELLED" ]; then aws athena get-query-execution --query-execution-id "$id"; return 1; fi
+              sleep 2
+            done
+            return 1
+          }
+
+          NATIONAL_ID=$(run_query "SELECT black_adult_population, married_population, married_rate, bachelors_plus_population, bachelors_plus_rate, weighted_mean_personal_income FROM gold_black_outcomes_national")
+          STATE_ID=$(run_query "SELECT state, black_population, married_population, married_rate, bachelors_plus_population, bachelors_plus_rate, weighted_mean_personal_income FROM gold_black_outcomes_state ORDER BY black_population DESC")
+
+          aws s3 cp "s3://$BUCKET/$RESULTS_PREFIX/${NATIONAL_ID}.csv" "s3://$BUCKET/published/year=${{ inputs.year }}/national.csv"
+          aws s3 cp "s3://$BUCKET/$RESULTS_PREFIX/${STATE_ID}.csv" "s3://$BUCKET/published/year=${{ inputs.year }}/states.csv"
+
+          NATIONAL_ROWS=$(aws s3 cp "s3://$BUCKET/published/year=${{ inputs.year }}/national.csv" - | tail -n +2 | wc -l)
+          STATE_ROWS=$(aws s3 cp "s3://$BUCKET/published/year=${{ inputs.year }}/states.csv" - | tail -n +2 | wc -l)
+          echo "published_national_rows=$NATIONAL_ROWS published_state_rows=$STATE_ROWS"
+          test "$NATIONAL_ROWS" -eq 1
+          test "$STATE_ROWS" -gt 0
