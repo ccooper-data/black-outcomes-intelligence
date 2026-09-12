@@ -1,0 +1,41 @@
+name: Build ACS PUMS Silver
+
+on:
+  workflow_dispatch:
+    inputs:
+      year:
+        description: "ACS PUMS year"
+        required: true
+        default: "2024"
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  silver:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::780976819607:role/black-outcomes-github-deploy
+          aws-region: us-east-2
+      - name: Build Silver Parquet
+        run: python -m src.transform.acs_pums_silver --year "${{ inputs.year }}"
+      - name: Verify Silver objects
+        env:
+          BUCKET: black-outcomes-intelligence-dev-4623dd8370ffd332f292468c61
+        run: |
+          aws s3api head-object --bucket "$BUCKET" --key "silver/acs_pums_person/year=${{ inputs.year }}/part-00000.parquet"
+          aws s3api head-object --bucket "$BUCKET" --key "silver/acs_pums_person/year=${{ inputs.year }}/manifest.json"
