@@ -18,7 +18,8 @@ import pandas as pd
 DEFAULT_YEAR = 2024
 DEFAULT_BUCKET = "black-outcomes-intelligence-dev-4623dd8370ffd332f292468c61"
 DEFAULT_URL_TEMPLATE = "https://www2.census.gov/programs-surveys/acs/data/pums/{year}/1-Year/csv_pus.zip"
-REQUIRED_COLUMNS = {"SERIALNO", "SPORDER", "ST", "PUMA", "AGEP", "RAC1P", "MAR", "SCHL", "PINCP", "ESR", "PWGTP"}
+# The 2024 FTP person file uses STATE (not the API geography alias ST).
+REQUIRED_COLUMNS = {"SERIALNO", "SPORDER", "STATE", "PUMA", "AGEP", "RAC1P", "MAR", "SCHL", "PINCP", "ESR", "PWGTP"}
 
 
 def sha256_file(path: Path) -> str:
