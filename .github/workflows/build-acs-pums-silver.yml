@@ -37,5 +37,5 @@ jobs:
         env:
           BUCKET: black-outcomes-intelligence-dev-4623dd8370ffd332f292468c61
         run: |
-          aws s3api head-object --bucket "$BUCKET" --key "silver/acs_pums_person/year=${{ inputs.year }}/part-00000.parquet"
-          aws s3api head-object --bucket "$BUCKET" --key "silver/acs_pums_person/year=${{ inputs.year }}/manifest.json"
+          aws s3api head-object --bucket "$BUCKET" --key "silver/acs_pums_person/year=${{ inputs.year }}/data/part-00000.parquet"
+          aws s3api head-object --bucket "$BUCKET" --key "silver/acs_pums_person/year=${{ inputs.year }}/metadata/manifest.json"
