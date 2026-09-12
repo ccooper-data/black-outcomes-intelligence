@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import tempfile
 import zipfile
@@ -36,8 +35,8 @@ def run(year: int, bucket: str) -> dict[str, object]:
     s3 = boto3.client("s3")
     bronze_key = f"bronze/acs_pums/year={year}/release=1-year/csv_pus.zip"
     silver_prefix = f"silver/acs_pums_person/year={year}"
-    parquet_key = f"{silver_prefix}/part-00000.parquet"
-    manifest_key = f"{silver_prefix}/manifest.json"
+    parquet_key = f"{silver_prefix}/data/part-00000.parquet"
+    manifest_key = f"{silver_prefix}/metadata/manifest.json"
 
     with tempfile.TemporaryDirectory(prefix="acs-pums-silver-") as directory:
         archive = Path(directory) / "csv_pus.zip"
