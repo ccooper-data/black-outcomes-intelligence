@@ -1,0 +1,65 @@
+name: Build Black Outcomes Gold
+
+on:
+  workflow_dispatch:
+    inputs:
+      year:
+        description: "ACS PUMS year"
+        required: true
+        default: "2024"
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  gold:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      AWS_REGION: us-east-2
+      DATABASE: black_outcomes_dev
+      SOURCE_TABLE: acs_pums_person
+      BUCKET: black-outcomes-intelligence-dev-4623dd8370ffd332f292468c61
+      RESULTS_PREFIX: athena-results/gold
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::780976819607:role/black-outcomes-github-deploy
+          aws-region: us-east-2
+      - name: Build and validate Gold marts
+        run: |
+          set -euo pipefail
+          run_query() {
+            local sql="$1"
+            local id state
+            id=$(aws athena start-query-execution --query-string "$sql" --query-execution-context Database="$DATABASE" --result-configuration OutputLocation="s3://$BUCKET/$RESULTS_PREFIX/" --query 'QueryExecutionId' --output text)
+            for i in {1..60}; do
+              state=$(aws athena get-query-execution --query-execution-id "$id" --query 'QueryExecution.Status.State' --output text)
+              [ "$state" = "SUCCEEDED" ] && { echo "$id"; return 0; }
+              if [ "$state" = "FAILED" ] || [ "$state" = "CANCELLED" ]; then
+                aws athena get-query-execution --query-execution-id "$id"
+                return 1
+              fi
+              sleep 2
+            done
+            echo "Athena query timed out" >&2
+            return 1
+          }
+
+          run_query "DROP TABLE IF EXISTS gold_black_outcomes_state" >/dev/null
+          run_query "CREATE TABLE gold_black_outcomes_state WITH (format='PARQUET', external_location='s3://$BUCKET/gold/black_outcomes_state/year=${{ inputs.year }}/') AS SELECT state, SUM(pwgtp) AS black_population, SUM(CASE WHEN mar = 1 THEN pwgtp ELSE 0 END) AS married_population, CAST(SUM(CASE WHEN mar = 1 THEN pwgtp ELSE 0 END) AS DOUBLE) / NULLIF(SUM(pwgtp),0) AS married_rate, SUM(CASE WHEN schl >= 21 THEN pwgtp ELSE 0 END) AS bachelors_plus_population, CAST(SUM(CASE WHEN schl >= 21 THEN pwgtp ELSE 0 END) AS DOUBLE) / NULLIF(SUM(pwgtp),0) AS bachelors_plus_rate, SUM(CASE WHEN pincp IS NOT NULL THEN pincp * pwgtp ELSE 0 END) / NULLIF(SUM(CASE WHEN pincp IS NOT NULL THEN pwgtp ELSE 0 END),0) AS weighted_mean_personal_income FROM $SOURCE_TABLE WHERE rac1p = 2 AND agep >= 18 GROUP BY state" >/dev/null
+
+          run_query "DROP TABLE IF EXISTS gold_black_outcomes_national" >/dev/null
+          run_query "CREATE TABLE gold_black_outcomes_national WITH (format='PARQUET', external_location='s3://$BUCKET/gold/black_outcomes_national/year=${{ inputs.year }}/') AS SELECT SUM(pwgtp) AS black_adult_population, SUM(CASE WHEN mar = 1 THEN pwgtp ELSE 0 END) AS married_population, CAST(SUM(CASE WHEN mar = 1 THEN pwgtp ELSE 0 END) AS DOUBLE) / NULLIF(SUM(pwgtp),0) AS married_rate, SUM(CASE WHEN schl >= 21 THEN pwgtp ELSE 0 END) AS bachelors_plus_population, CAST(SUM(CASE WHEN schl >= 21 THEN pwgtp ELSE 0 END) AS DOUBLE) / NULLIF(SUM(pwgtp),0) AS bachelors_plus_rate, SUM(CASE WHEN pincp IS NOT NULL THEN pincp * pwgtp ELSE 0 END) / NULLIF(SUM(CASE WHEN pincp IS NOT NULL THEN pwgtp ELSE 0 END),0) AS weighted_mean_personal_income FROM $SOURCE_TABLE WHERE rac1p = 2 AND agep >= 18" >/dev/null
+
+          CHECK_ID=$(run_query "SELECT (SELECT COUNT(*) FROM gold_black_outcomes_state) AS state_rows, (SELECT black_adult_population FROM gold_black_outcomes_national LIMIT 1) AS black_adult_population")
+          STATE_ROWS=$(aws athena get-query-results --query-execution-id "$CHECK_ID" --query 'ResultSet.Rows[1].Data[0].VarCharValue' --output text)
+          BLACK_POP=$(aws athena get-query-results --query-execution-id "$CHECK_ID" --query 'ResultSet.Rows[1].Data[1].VarCharValue' --output text)
+          echo "gold_state_rows=$STATE_ROWS black_adult_population=$BLACK_POP"
+          test "$STATE_ROWS" -gt 0
+          test "$BLACK_POP" -gt 0
