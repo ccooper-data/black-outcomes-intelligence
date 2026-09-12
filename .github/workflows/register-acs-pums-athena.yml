@@ -52,7 +52,7 @@ jobs:
                 {"Name":"esr","Type":"bigint"},
                 {"Name":"pwgtp","Type":"bigint"}
               ],
-              "Location": "s3://$BUCKET/silver/acs_pums_person/year=${{ inputs.year }}/",
+              "Location": "s3://$BUCKET/silver/acs_pums_person/year=${{ inputs.year }}/part-00000.parquet",
               "InputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
               "OutputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
               "SerdeInfo": {"SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"}
