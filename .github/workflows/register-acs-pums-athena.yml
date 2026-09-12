@@ -1,0 +1,84 @@
+name: Register ACS PUMS in Athena
+
+on:
+  workflow_dispatch:
+    inputs:
+      year:
+        description: "ACS PUMS year"
+        required: true
+        default: "2024"
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      AWS_REGION: us-east-2
+      DATABASE: black_outcomes_dev
+      TABLE: acs_pums_person
+      BUCKET: black-outcomes-intelligence-dev-4623dd8370ffd332f292468c61
+      RESULTS_PREFIX: athena-results/validation
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::780976819607:role/black-outcomes-github-deploy
+          aws-region: us-east-2
+      - name: Register Silver table in Glue
+        run: |
+          cat > /tmp/table.json <<EOF
+          {
+            "Name": "$TABLE",
+            "TableType": "EXTERNAL_TABLE",
+            "Parameters": {"classification": "parquet", "EXTERNAL": "TRUE"},
+            "StorageDescriptor": {
+              "Columns": [
+                {"Name":"serialno","Type":"string"},
+                {"Name":"sporder","Type":"bigint"},
+                {"Name":"state","Type":"bigint"},
+                {"Name":"puma","Type":"bigint"},
+                {"Name":"agep","Type":"bigint"},
+                {"Name":"rac1p","Type":"bigint"},
+                {"Name":"mar","Type":"bigint"},
+                {"Name":"schl","Type":"bigint"},
+                {"Name":"pincp","Type":"bigint"},
+                {"Name":"esr","Type":"bigint"},
+                {"Name":"pwgtp","Type":"bigint"}
+              ],
+              "Location": "s3://$BUCKET/silver/acs_pums_person/year=${{ inputs.year }}/",
+              "InputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
+              "OutputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
+              "SerdeInfo": {"SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"}
+            }
+          }
+          EOF
+          if aws glue get-table --database-name "$DATABASE" --name "$TABLE" >/dev/null 2>&1; then
+            aws glue update-table --database-name "$DATABASE" --table-input file:///tmp/table.json
+          else
+            aws glue create-table --database-name "$DATABASE" --table-input file:///tmp/table.json
+          fi
+      - name: Validate with Athena
+        run: |
+          EXECUTION_ID=$(aws athena start-query-execution \
+            --query-string "SELECT COUNT(*) AS rows, SUM(pwgtp) AS weighted_population FROM ${TABLE}" \
+            --query-execution-context Database="$DATABASE" \
+            --result-configuration OutputLocation="s3://$BUCKET/$RESULTS_PREFIX/" \
+            --query 'QueryExecutionId' --output text)
+          for i in {1..30}; do
+            STATE=$(aws athena get-query-execution --query-execution-id "$EXECUTION_ID" --query 'QueryExecution.Status.State' --output text)
+            if [ "$STATE" = "SUCCEEDED" ]; then break; fi
+            if [ "$STATE" = "FAILED" ] || [ "$STATE" = "CANCELLED" ]; then
+              aws athena get-query-execution --query-execution-id "$EXECUTION_ID"
+              exit 1
+            fi
+            sleep 2
+          done
+          test "$STATE" = "SUCCEEDED"
+          aws athena get-query-results --query-execution-id "$EXECUTION_ID"
