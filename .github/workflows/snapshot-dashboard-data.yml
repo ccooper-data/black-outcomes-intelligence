@@ -1,0 +1,50 @@
+name: Snapshot Dashboard Data
+
+on:
+  workflow_dispatch:
+    inputs:
+      year:
+        description: "Published analytics year"
+        required: true
+        default: "2024"
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::780976819607:role/black-outcomes-github-deploy
+          aws-region: us-east-2
+      - name: Copy aggregated dashboard extracts
+        env:
+          BUCKET: black-outcomes-intelligence-dev-4623dd8370ffd332f292468c61
+        run: |
+          set -euo pipefail
+          mkdir -p data/published
+          aws s3 cp "s3://$BUCKET/published/year=${{ inputs.year }}/national.csv" data/published/national.csv
+          aws s3 cp "s3://$BUCKET/published/year=${{ inputs.year }}/states.csv" data/published/states.csv
+          test "$(tail -n +2 data/published/national.csv | wc -l)" -eq 1
+          test "$(tail -n +2 data/published/states.csv | wc -l)" -eq 51
+      - name: Commit dashboard snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/published/national.csv data/published/states.csv
+          if git diff --cached --quiet; then
+            echo "Dashboard data already current."
+          else
+            git commit -m "data: snapshot 2024 dashboard analytics"
+            git push
+          fi
