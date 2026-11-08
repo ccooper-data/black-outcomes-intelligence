@@ -12,7 +12,7 @@ Direct standardization uses six age bands: 18–24, 25–34, 35–44, 45–54, 5
 
 The contrast is Black women minus Black men. Its point estimate and all 80 replicate estimates are formed by paired subtraction. The ACS SDR standard error uses `(4/80) × Σ(θr − θ)²`; the two-sided p-value uses the resulting normal test statistic. A precise zero difference is retained rather than suppressed for having an undefined relative standard error.
 
-National results report `q = p`. State comparisons use Benjamini–Hochberg false-discovery-rate adjustment separately for each outcome across the 51 state-level comparisons. `difference_fdr_significant` means `q ≤ 0.05`; it is not a causal or practical-importance label. The dashboard always displays the difference in its original unit so readers can judge magnitude separately from sampling evidence.
+National results report `q = p`. State comparisons use Benjamini–Hochberg false-discovery-rate adjustment separately for each outcome across the 51 state-level comparisons. Adjustment is performed in log space so extreme probabilities cannot collapse to a false exact zero. Values smaller than the smallest positive IEEE-754 float are stored at that positive floor, explicitly flagged, and accompanied by their `log10` value. `difference_fdr_significant` means `q ≤ 0.05`; it is not a causal or practical-importance label. The dashboard always displays the difference in its original unit so readers can judge magnitude separately from sampling evidence.
 
 ## Suppression and publication
 

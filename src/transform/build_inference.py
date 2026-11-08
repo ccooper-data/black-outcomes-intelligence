@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import argparse
 import json
-from math import erfc, sqrt
+from math import log, log10
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from scipy.special import log_ndtr
 
 from src.transform.build_marts import AGE_BANDS, validate
 from src.transform.survey import (
@@ -23,6 +24,8 @@ from src.transform.survey import (
 YEAR = 2024
 METRICS = ("married_rate", "bachelors_plus_rate", "employment_rate", "mean_personal_income")
 REFERENCE_NAME = "2024 national Black-adult age distribution"
+MIN_POSITIVE_FLOAT = np.nextafter(0.0, 1.0)
+LOG10_MIN_POSITIVE_FLOAT = log10(MIN_POSITIVE_FLOAT)
 
 
 def _age_mask(frame: pd.DataFrame, low: int, high: int | None) -> pd.Series:
@@ -89,11 +92,18 @@ def _difference(women: ReplicateEstimate, men: ReplicateEstimate,
     if bounds and np.isfinite(se):
         low, high = max(bounds[0], low), min(bounds[1], high)
     if np.isfinite(se) and se > 0:
-        p_value = erfc(abs(estimate / se) / sqrt(2.0))
+        log_p_value = float(log(2.0) + log_ndtr(-abs(estimate / se)))
+        log10_p_value = log_p_value / log(10.0)
+        p_underflow = log10_p_value < LOG10_MIN_POSITIVE_FLOAT
+        p_value = MIN_POSITIVE_FLOAT if p_underflow else float(np.exp(log_p_value))
     elif np.isfinite(estimate) and estimate == 0:
         p_value = 1.0
+        log10_p_value = 0.0
+        p_underflow = False
     else:
-        p_value = 0.0
+        p_value = MIN_POSITIVE_FLOAT
+        log10_p_value = float("-inf")
+        p_underflow = True
     return {
         "estimate": float(estimate),
         "standard_error": float(se),
@@ -105,7 +115,11 @@ def _difference(women: ReplicateEstimate, men: ReplicateEstimate,
         "unweighted_n": min(women.unweighted_n, men.unweighted_n),
         "weighted_denominator": min(women.weighted_denominator, men.weighted_denominator),
         "p_value": float(p_value),
+        "log10_p_value": float(log10_p_value),
+        "p_value_below_machine_precision": bool(p_underflow),
         "q_value": float("nan"),
+        "log10_q_value": float("nan"),
+        "q_value_below_machine_precision": False,
         "fdr_significant": False,
         "is_suppressed": bool(reasons),
         "suppression_reason": ";".join(reasons),
@@ -121,6 +135,26 @@ def _benjamini_hochberg(p_values: pd.Series) -> pd.Series:
     adjusted = ordered.to_numpy(dtype=float) * m / np.arange(1, m + 1)
     adjusted = np.minimum.accumulate(adjusted[::-1])[::-1]
     return pd.Series(np.minimum(adjusted, 1.0), index=ordered.index).reindex(p_values.index)
+
+
+def _benjamini_hochberg_log10(log10_p_values: pd.Series) -> pd.DataFrame:
+    """Adjust extreme p-values in log space without numerical underflow."""
+    if log10_p_values.empty:
+        return pd.DataFrame(index=log10_p_values.index, columns=["q_value", "log10_q_value", "underflow"])
+    ordered = log10_p_values.sort_values(kind="mergesort")
+    m = len(ordered)
+    ranks = np.arange(1, m + 1)
+    adjusted_log10 = ordered.to_numpy(dtype=float) + np.log10(m / ranks)
+    adjusted_log10 = np.minimum.accumulate(adjusted_log10[::-1])[::-1]
+    adjusted_log10 = np.minimum(adjusted_log10, 0.0)
+    underflow = adjusted_log10 < LOG10_MIN_POSITIVE_FLOAT
+    q_values = np.full(len(adjusted_log10), MIN_POSITIVE_FLOAT)
+    q_values[~underflow] = np.power(10.0, adjusted_log10[~underflow])
+    return pd.DataFrame({
+        "q_value": q_values,
+        "log10_q_value": adjusted_log10,
+        "underflow": underflow,
+    }, index=ordered.index).reindex(log10_p_values.index)
 
 
 def build_inference(frame: pd.DataFrame, year: int = YEAR) -> tuple[pd.DataFrame, dict[str, object]]:
@@ -159,10 +193,15 @@ def build_inference(frame: pd.DataFrame, year: int = YEAR) -> tuple[pd.DataFrame
     for metric in METRICS:
         national = (result["metric"] == metric) & result["state"].isna() & ~result["difference_is_suppressed"]
         result.loc[national, "difference_q_value"] = result.loc[national, "difference_p_value"]
+        result.loc[national, "difference_log10_q_value"] = result.loc[national, "difference_log10_p_value"]
+        result.loc[national, "difference_q_value_below_machine_precision"] = result.loc[
+            national, "difference_p_value_below_machine_precision"
+        ]
         states = (result["metric"] == metric) & result["state"].notna() & ~result["difference_is_suppressed"]
-        result.loc[states, "difference_q_value"] = _benjamini_hochberg(
-            result.loc[states, "difference_p_value"]
-        )
+        adjusted = _benjamini_hochberg_log10(result.loc[states, "difference_log10_p_value"])
+        result.loc[states, "difference_q_value"] = adjusted["q_value"]
+        result.loc[states, "difference_log10_q_value"] = adjusted["log10_q_value"]
+        result.loc[states, "difference_q_value_below_machine_precision"] = adjusted["underflow"]
     result["difference_fdr_significant"] = (
         result["difference_q_value"].le(0.05) & ~result["difference_is_suppressed"]
     )
@@ -179,6 +218,10 @@ def build_inference(frame: pd.DataFrame, year: int = YEAR) -> tuple[pd.DataFrame
         },
         "variance": "80 ACS person replicate weights; SDR factor 4/80",
         "testing": "two-sided normal test from the direct replicate-weight contrast standard error",
+        "extreme_probability_reporting": (
+            "p and q values below positive IEEE-754 float precision are stored at the smallest positive float, "
+            "flagged, and accompanied by their finite log10 values"
+        ),
         "multiplicity": "Benjamini-Hochberg FDR within each metric across 51 state comparisons; national q=p",
         "causal_interpretation": False,
         "rows": len(result),

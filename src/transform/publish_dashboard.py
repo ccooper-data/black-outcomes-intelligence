@@ -9,7 +9,10 @@ import pandas as pd
 PUBLIC_REDACT_FIELDS = (
     "estimate", "standard_error", "ci95_lower", "ci95_upper", "relative_standard_error",
 )
-PUBLIC_INFERENCE_REDACT_FIELDS = ("p_value", "q_value", "fdr_significant")
+PUBLIC_INFERENCE_REDACT_FIELDS = (
+    "p_value", "log10_p_value", "p_value_below_machine_precision",
+    "q_value", "log10_q_value", "q_value_below_machine_precision", "fdr_significant",
+)
 
 
 def redact_suppressed(frame: pd.DataFrame) -> pd.DataFrame:
@@ -24,7 +27,9 @@ def redact_suppressed(frame: pd.DataFrame) -> pd.DataFrame:
         for field in (*PUBLIC_REDACT_FIELDS, *PUBLIC_INFERENCE_REDACT_FIELDS):
             column = f"{prefix}_{field}"
             if column in result.columns:
-                if field == "fdr_significant":
+                if field in {
+                    "p_value_below_machine_precision", "q_value_below_machine_precision", "fdr_significant",
+                }:
                     result[column] = result[column].astype(object)
                 result.loc[suppressed, column] = pd.NA
     return result

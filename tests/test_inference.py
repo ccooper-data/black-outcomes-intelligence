@@ -8,7 +8,8 @@ import pytest
 
 from src.ingest.acs_pums import PERSON_REPLICATE_WEIGHTS
 from src.transform.build_inference import (
-    METRICS, ReplicateEstimate, _benjamini_hochberg, _difference, build_inference,
+    METRICS, ReplicateEstimate, _benjamini_hochberg, _benjamini_hochberg_log10,
+    _difference, build_inference,
 )
 from src.transform.publish_dashboard import build_candidates
 from src.transform.reconcile_inference import reconcile_inference
@@ -49,7 +50,10 @@ def test_age_adjusted_inference_grain_and_contract():
     required = {
         "women_estimate", "men_estimate", "difference_estimate",
         "difference_standard_error", "difference_ci95_lower", "difference_ci95_upper",
-        "difference_p_value", "difference_q_value", "difference_fdr_significant",
+        "difference_p_value", "difference_log10_p_value",
+        "difference_p_value_below_machine_precision", "difference_q_value",
+        "difference_log10_q_value", "difference_q_value_below_machine_precision",
+        "difference_fdr_significant",
         "difference_is_suppressed", "difference_suppression_reason",
     }
     assert required <= set(result.columns)
@@ -70,6 +74,18 @@ def test_benjamini_hochberg_is_monotone_and_order_preserving():
     values = pd.Series([0.01, 0.04, 0.03], index=["a", "b", "c"])
     adjusted = _benjamini_hochberg(values)
     assert adjusted.to_dict() == pytest.approx({"a": 0.03, "b": 0.04, "c": 0.04})
+
+
+def test_extreme_probabilities_remain_positive_and_retain_log_evidence():
+    women = ReplicateEstimate(0.9, np.full(80, 0.899), 1000, 100000)
+    men = ReplicateEstimate(0.1, np.full(80, 0.101), 1000, 100000)
+    difference = _difference(women, men, False, False, (-1.0, 1.0))
+    assert difference["p_value"] > 0
+    assert difference["p_value_below_machine_precision"] is True
+    assert difference["log10_p_value"] < -323
+    adjusted = _benjamini_hochberg_log10(pd.Series([-500.0, -10.0]))
+    assert (adjusted["q_value"] > 0).all()
+    assert bool(adjusted.iloc[0]["underflow"])
 
 
 def test_inference_reconciliation_detects_public_drift(tmp_path):

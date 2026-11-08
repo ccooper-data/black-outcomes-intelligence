@@ -151,6 +151,10 @@ def _inference_evidence(frame: pd.DataFrame) -> list[Evidence]:
             low = float(row["difference_ci95_lower"])
             high = float(row["difference_ci95_upper"])
             q_value = float(row["difference_q_value"])
+            if bool(row.get("difference_q_value_below_machine_precision", False)):
+                q_text = f"q-value below floating-point precision (log10 q {float(row['difference_log10_q_value']):.3f})"
+            else:
+                q_text = f"q-value {q_value:.6g}"
             conclusion = (
                 "statistically distinguishable after FDR control"
                 if bool(row["difference_fdr_significant"])
@@ -158,7 +162,7 @@ def _inference_evidence(frame: pd.DataFrame) -> list[Evidence]:
             )
             detail = (
                 f"{label} difference: {_format(estimate, kind)} "
-                f"(95% CI {_format(low, kind)}–{_format(high, kind)}); q-value {q_value:.6g}; "
+                f"(95% CI {_format(low, kind)}–{_format(high, kind)}); {q_text}; "
                 f"{conclusion}; minimum component unweighted n {n:,}; "
                 f"minimum component weighted denominator {denominator:,.0f}."
             )
