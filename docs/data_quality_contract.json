@@ -2,6 +2,14 @@
   "dataset": "acs2024_black_adults_curated",
   "grain": "one ACS PUMS person record, Black alone (RAC1P=2), age 18+",
   "weight": "PWGTP",
+  "replicate_weights": "PWGTP1-PWGTP80",
+  "variance_method": "ACS SDR: (4/80) * sum((replicate_estimate - estimate)^2)",
+  "publication_policy": {
+    "minimum_unweighted_n": 30,
+    "maximum_relative_standard_error": 0.3,
+    "confidence_level": 0.95,
+    "suppressed_values_are_not_zero": true
+  },
   "checks": {
     "rows": 240035,
     "weighted_population": 31555652,

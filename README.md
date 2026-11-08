@@ -3,10 +3,25 @@
 Production-oriented cloud analytics portfolio project using 2024 ACS PUMS microdata to study Black American adult marriage, education, income, employment, and related outcomes.
 
 ## Architecture
-Census ACS PUMS -> Python ingestion/validation -> S3 Bronze -> curated Parquet/S3 Silver -> analytical marts/S3 Gold -> Glue Data Catalog -> Athena -> ML/API/BI.
+Census ACS PUMS → validated S3 Bronze → curated Parquet/S3 Silver → replicate-weight Python estimator → versioned CSV/S3 Gold → byte-for-byte published snapshot → Streamlit. All workflows are manually dispatched; the public dashboard reads repository snapshots and requires no AWS access.
 
 ## Engineering stack
 Python, SQL, AWS S3, AWS Glue, Athena, Terraform, Docker, GitHub Actions. Planned: dbt, PySpark, XGBoost/SHAP, Streamlit/Power BI.
 
-## Data integrity
-Population estimates use ACS person weight PWGTP. Raw source data are not committed to Git.
+## Statistical integrity
+
+Population totals, rates, and means use `PWGTP`. Sampling variances use all 80 ACS person replicate weights (`PWGTP1`–`PWGTP80`) and the Census successive-difference-replication formula `SE = sqrt((4/80) * Σ(estimate_r - estimate)^2)`. Ratios and means recompute both numerator and denominator for every replicate. Published 95% confidence intervals are the point estimate ± `1.959964 × SE`, clipped to `[0, 1]` only for proportions.
+
+Every metric carries `unweighted_n` and `weighted_denominator`. A value is marked `is_suppressed` and excluded from dashboard ranking when any of these transparent rules apply:
+
+- unweighted denominator/sample count is below 30;
+- weighted denominator is nonpositive;
+- relative standard error (`SE / abs(estimate)`) exceeds 30% or cannot be calculated.
+
+Suppressed point estimates remain in the private analytical artifact for auditability, but the dashboard renders “Suppressed.” These thresholds are a project publication policy, not a Census endorsement. See [docs/statistical_methodology.md](docs/statistical_methodology.md).
+
+## Reconciliation and testing
+
+`src.transform.reconcile` reconstructs Silver from source columns, rebuilds Gold from Silver, and compares Gold with published output using exact schema/shape checks and `1e-12` numeric tolerance. CI runs this end-to-end on deterministic synthetic records, including a deliberate drift-failure test. Production workflows also validate the source/Silver schema, require every statistical field before Gold upload, and compare Gold and published files byte-for-byte. Raw microdata are never committed.
+
+Run `pytest -q` locally. Building and publishing AWS artifacts is manual and uses existing S3 only; this Phase 1 change creates no infrastructure and runs no deployment automatically.

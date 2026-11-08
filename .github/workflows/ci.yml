@@ -9,3 +9,5 @@ jobs:
         with: {python-version: '3.12'}
       - run: pip install -r requirements.txt
       - run: pytest -q
+      - name: Verify no production point-estimate-only SQL remains
+        run: '! grep -R "CREATE TABLE gold_black_outcomes" .github/workflows'

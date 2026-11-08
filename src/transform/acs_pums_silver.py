@@ -8,12 +8,13 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-import boto3
 import pandas as pd
 
+from src.ingest.acs_pums import PERSON_REPLICATE_WEIGHTS
+
 DEFAULT_BUCKET = "black-outcomes-intelligence-dev-4623dd8370ffd332f292468c61"
-COLUMNS = ["SERIALNO", "SPORDER", "STATE", "PUMA", "AGEP", "RAC1P", "MAR", "SCHL", "PINCP", "ESR", "PWGTP"]
-INTEGER_COLUMNS = ["SPORDER", "STATE", "PUMA", "AGEP", "RAC1P", "MAR", "SCHL", "PINCP", "ESR", "PWGTP"]
+COLUMNS = ["SERIALNO", "SPORDER", "STATE", "PUMA", "AGEP", "RAC1P", "MAR", "SCHL", "PINCP", "ESR", "PWGTP", *PERSON_REPLICATE_WEIGHTS]
+INTEGER_COLUMNS = [c for c in COLUMNS if c != "SERIALNO"]
 
 
 def transform_frame(frame: pd.DataFrame) -> pd.DataFrame:
@@ -24,14 +25,19 @@ def transform_frame(frame: pd.DataFrame) -> pd.DataFrame:
     out["SERIALNO"] = out["SERIALNO"].astype("string")
     for column in INTEGER_COLUMNS:
         out[column] = pd.to_numeric(out[column], errors="coerce").astype("Int64")
-    if out["PWGTP"].isna().any() or (out["PWGTP"] <= 0).any():
-        raise ValueError("PWGTP must be present and positive for every person record")
+    weight_columns = ["PWGTP", *PERSON_REPLICATE_WEIGHTS]
+    if out[weight_columns].isna().any().any() or (out[weight_columns] < 0).any().any():
+        raise ValueError("PWGTP and all 80 person replicate weights must be present and nonnegative")
+    if (out["PWGTP"] <= 0).any():
+        raise ValueError("PWGTP must be positive for every person record")
     if out["SERIALNO"].isna().any():
         raise ValueError("SERIALNO must be present for every person record")
     return out
 
 
 def run(year: int, bucket: str) -> dict[str, object]:
+    import boto3
+
     s3 = boto3.client("s3")
     bronze_key = f"bronze/acs_pums/year={year}/release=1-year/csv_pus.zip"
     silver_prefix = f"silver/acs_pums_person/year={year}"
@@ -64,6 +70,8 @@ def run(year: int, bucket: str) -> dict[str, object]:
             "rows": int(len(silver)),
             "columns": COLUMNS,
             "weighted_population": int(silver["PWGTP"].sum()),
+            "replicate_weight_columns": list(PERSON_REPLICATE_WEIGHTS),
+            "replicate_method": "ACS successive-difference replication (SDR), variance factor 4/80",
             "created_at_utc": datetime.now(timezone.utc).isoformat(),
         }
         s3.put_object(Bucket=bucket, Key=manifest_key, Body=json.dumps(manifest, indent=2).encode(), ContentType="application/json")

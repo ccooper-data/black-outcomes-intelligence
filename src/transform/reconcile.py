@@ -1,0 +1,66 @@
+"""Fail-closed reconciliation across ACS source, Silver, Gold, and publication."""
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+from src.transform.acs_pums_silver import COLUMNS, transform_frame
+from src.transform.build_marts import build_gold
+
+
+def _assert_frames_equal(expected: pd.DataFrame, actual: pd.DataFrame, keys: list[str], label: str) -> None:
+    left = expected.sort_values(keys).reset_index(drop=True)
+    right = actual.sort_values(keys).reset_index(drop=True)
+    if list(left.columns) != list(right.columns) or left.shape != right.shape:
+        raise AssertionError(f"{label} schema/shape mismatch: {left.shape} != {right.shape}")
+    for column in left.columns:
+        if pd.api.types.is_numeric_dtype(left[column]):
+            if not np.allclose(left[column], right[column], rtol=1e-12, atol=1e-12, equal_nan=True):
+                raise AssertionError(f"{label} numeric mismatch in {column}")
+        elif not left[column].fillna("").equals(right[column].fillna("")):
+            raise AssertionError(f"{label} value mismatch in {column}")
+
+
+def reconcile(source: pd.DataFrame, silver: pd.DataFrame, gold_national: pd.DataFrame,
+              gold_states: pd.DataFrame, published_national: pd.DataFrame,
+              published_states: pd.DataFrame, year: int = 2024) -> dict[str, object]:
+    canonical_silver = transform_frame(source)
+    _assert_frames_equal(canonical_silver[COLUMNS], silver[COLUMNS], ["SERIALNO", "SPORDER"], "source-to-Silver")
+    expected_national, expected_states = build_gold(silver, year)
+    _assert_frames_equal(expected_national, gold_national, ["survey_year"], "Silver-to-Gold national")
+    _assert_frames_equal(expected_states, gold_states, ["state"], "Silver-to-Gold states")
+    _assert_frames_equal(gold_national, published_national, ["survey_year"], "Gold-to-published national")
+    _assert_frames_equal(gold_states, published_states, ["state"], "Gold-to-published states")
+    return {
+        "status": "passed", "year": year, "source_rows": len(source), "silver_rows": len(silver),
+        "national_rows": len(gold_national), "state_rows": len(gold_states),
+        "checks": ["source-to-Silver", "Silver-to-Gold", "Gold-to-published"],
+    }
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--source", type=Path, required=True)
+    parser.add_argument("--silver", type=Path, required=True)
+    parser.add_argument("--gold-dir", type=Path, required=True)
+    parser.add_argument("--published-dir", type=Path, required=True)
+    parser.add_argument("--year", type=int, default=2024)
+    parser.add_argument("--report", type=Path)
+    args = parser.parse_args()
+    report = reconcile(
+        pd.read_parquet(args.source), pd.read_parquet(args.silver),
+        pd.read_csv(args.gold_dir / "national.csv"), pd.read_csv(args.gold_dir / "states.csv"),
+        pd.read_csv(args.published_dir / "national.csv"), pd.read_csv(args.published_dir / "states.csv"), args.year,
+    )
+    payload = json.dumps(report, indent=2) + "\n"
+    if args.report:
+        args.report.write_text(payload)
+    print(payload, end="")
+
+
+if __name__ == "__main__":
+    main()

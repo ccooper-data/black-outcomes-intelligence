@@ -22,6 +22,17 @@ def load_data():
     states = pd.read_csv(states_path)
     if len(national) != 1 or len(states) != 51:
         raise ValueError("Published dashboard snapshot failed row-count validation.")
+    required = {
+        "black_population_estimate", "black_population_standard_error", "black_population_ci95_lower",
+        "black_population_ci95_upper", "black_population_unweighted_n", "black_population_weighted_denominator",
+        "black_population_is_suppressed", "married_rate_estimate", "married_rate_is_suppressed",
+        "bachelors_plus_rate_estimate", "bachelors_plus_rate_is_suppressed",
+        "mean_personal_income_estimate", "mean_personal_income_is_suppressed",
+    }
+    for name, frame in (("national", national), ("states", states)):
+        missing = sorted(required - set(frame.columns))
+        if missing:
+            raise ValueError(f"Published {name} snapshot lacks Phase 1 statistical fields: {missing}")
     return national, states
 
 
@@ -47,11 +58,18 @@ except Exception as exc:
 states["state_name"] = states["state"].map(STATE_NAMES)
 n = national.iloc[0]
 
+def metric_text(row, prefix, kind):
+    if bool(row[f"{prefix}_is_suppressed"]):
+        return "Suppressed"
+    value = row[f"{prefix}_estimate"]
+    low, high = row[f"{prefix}_ci95_lower"], row[f"{prefix}_ci95_upper"]
+    return f"{format_value(value, kind)} (95% CI {format_value(low, kind)}–{format_value(high, kind)})"
+
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Black adult population", f"{int(n.black_adult_population):,}")
-c2.metric("Married", f"{float(n.married_rate):.1%}")
-c3.metric("Bachelor's+", f"{float(n.bachelors_plus_rate):.1%}")
-c4.metric("Mean personal income", f"${float(n.weighted_mean_personal_income):,.0f}")
+c1.metric("Black adult population", metric_text(n, "black_population", "compact"))
+c2.metric("Married", metric_text(n, "married_rate", "percent"))
+c3.metric("Bachelor's+", metric_text(n, "bachelors_plus_rate", "percent"))
+c4.metric("Mean personal income", metric_text(n, "mean_personal_income", "currency"))
 
 st.subheader("Explore outcomes")
 state_options = ["Top 10 States"] + sorted(states.state_name.dropna().tolist())
@@ -61,12 +79,14 @@ metric_config = {
     "Black population": ("black_population", "Black adult population", "compact"),
     "Marriage rate": ("married_rate", "Marriage rate", "percent"),
     "Bachelor's+ rate": ("bachelors_plus_rate", "Bachelor's+ rate", "percent"),
-    "Mean personal income": ("weighted_mean_personal_income", "Mean personal income", "currency"),
+    "Mean personal income": ("mean_personal_income", "Mean personal income", "currency"),
 }
-column, axis_title, value_type = metric_config[metric]
+prefix, axis_title, value_type = metric_config[metric]
+column = f"{prefix}_estimate"
 
 if selected == "Top 10 States":
-    ranked = states.dropna(subset=["state_name", column]).nlargest(10, column).sort_values(column, ascending=True).copy()
+    eligible_states = states.loc[~states[f"{prefix}_is_suppressed"].astype(bool)]
+    ranked = eligible_states.dropna(subset=["state_name", column]).nlargest(10, column).sort_values(column, ascending=True).copy()
     st.markdown(f"#### Top 10 states — {metric}")
     st.bar_chart(
         ranked[["state_name", column]].set_index("state_name"),
@@ -96,14 +116,14 @@ else:
         y_label="State",
         height=220,
     )
-    st.caption(f"{selected} {axis_title.lower()}: **{format_value(r[column], value_type)}**")
+    st.caption(f"{selected} {axis_title.lower()}: **{metric_text(r, prefix, value_type)}**")
 
     st.markdown(f"#### {selected} profile")
     a, b, c, d = st.columns(4)
-    a.metric("Black adult population", f"{int(r.black_population):,}")
-    b.metric("Married", f"{float(r.married_rate):.1%}")
-    c.metric("Bachelor's+", f"{float(r.bachelors_plus_rate):.1%}")
-    d.metric("Mean personal income", f"${float(r.weighted_mean_personal_income):,.0f}")
+    a.metric("Black adult population", metric_text(r, "black_population", "compact"))
+    b.metric("Married", metric_text(r, "married_rate", "percent"))
+    c.metric("Bachelor's+", metric_text(r, "bachelors_plus_rate", "percent"))
+    d.metric("Mean personal income", metric_text(r, "mean_personal_income", "currency"))
 
     st.info(
         f"The chart is now filtered to {selected}. Top-10 city/place rankings will be added as a separate geography layer. "
@@ -112,4 +132,4 @@ else:
 
 st.caption("Dashboard data are a versioned snapshot of aggregated Gold outputs; the public application requires no AWS credentials and has no access to Census microdata.")
 with st.expander("Methodology"):
-    st.markdown("Estimates use 2024 ACS 1-Year PUMS person records, restricted to RAC1P=2 (Black alone) and age 18+. Population counts and rates use the Census person weight PWGTP. Income is a PWGTP-weighted mean of PINCP among records with non-null personal income. These are descriptive survey estimates, not causal claims.")
+    st.markdown("Estimates use 2024 ACS 1-Year PUMS person records, restricted to RAC1P=2 (Black alone) and age 18+. Point estimates use PWGTP. Standard errors use all 80 PWGTP replicate weights and the Census ACS SDR factor 4/80; intervals are estimate ± 1.96 SE (bounded to [0,1] for rates). Every metric publishes its unweighted sample size and weighted denominator. Estimates are suppressed when unweighted n < 30, the denominator is nonpositive, or relative standard error exceeds 30%. These are descriptive survey estimates, not causal claims.")

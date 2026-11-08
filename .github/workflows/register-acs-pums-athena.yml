@@ -33,22 +33,23 @@ jobs:
           aws-region: us-east-2
       - name: Register Silver table in Glue
         run: |
-          cat > /tmp/table.json <<EOF
-          {
-            "Name": "$TABLE",
-            "TableType": "EXTERNAL_TABLE",
-            "Parameters": {"classification": "parquet", "EXTERNAL": "TRUE"},
-            "StorageDescriptor": {
-              "Columns": [
-                {"Name":"serialno","Type":"string"},{"Name":"sporder","Type":"bigint"},{"Name":"state","Type":"bigint"},{"Name":"puma","Type":"bigint"},{"Name":"agep","Type":"bigint"},{"Name":"rac1p","Type":"bigint"},{"Name":"mar","Type":"bigint"},{"Name":"schl","Type":"bigint"},{"Name":"pincp","Type":"bigint"},{"Name":"esr","Type":"bigint"},{"Name":"pwgtp","Type":"bigint"}
-              ],
-              "Location": "s3://$BUCKET/silver/acs_pums_person/year=${{ inputs.year }}/data/",
-              "InputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
-              "OutputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
-              "SerdeInfo": {"SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"}
-            }
+          python - <<'PY'
+          import json, os
+          names = ['serialno','sporder','state','puma','agep','rac1p','mar','schl','pincp','esr','pwgtp'] + [f'pwgtp{i}' for i in range(1,81)]
+          table = {
+              'Name': os.environ['TABLE'], 'TableType': 'EXTERNAL_TABLE',
+              'Parameters': {'classification': 'parquet', 'EXTERNAL': 'TRUE'},
+              'StorageDescriptor': {
+                  'Columns': [{'Name': n, 'Type': 'string' if n == 'serialno' else 'bigint'} for n in names],
+                  'Location': f"s3://{os.environ['BUCKET']}/silver/acs_pums_person/year=${{ inputs.year }}/data/",
+                  'InputFormat': 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat',
+                  'OutputFormat': 'org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat',
+                  'SerdeInfo': {'SerializationLibrary': 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe'},
+              },
           }
-          EOF
+          with open('/tmp/table.json', 'w') as handle:
+              json.dump(table, handle)
+          PY
           if aws glue get-table --database-name "$DATABASE" --name "$TABLE" >/dev/null 2>&1; then aws glue update-table --database-name "$DATABASE" --table-input file:///tmp/table.json; else aws glue create-table --database-name "$DATABASE" --table-input file:///tmp/table.json; fi
       - name: Validate with Athena
         run: |
