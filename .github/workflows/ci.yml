@@ -19,6 +19,5 @@ jobs:
           grep -q 'cmp "/tmp/published/$name"' .github/workflows/publish-gold-analytics.yml
           grep -q 'default: false' .github/workflows/publish-gold-analytics.yml
           grep -q 'if:.*inputs.publish' .github/workflows/publish-gold-analytics.yml
-          grep -q "python -m src.transform.reconcile_longitudinal" .github/workflows/publish-longitudinal.yml
-          grep -q 'cmp "/tmp/published/$name"' .github/workflows/publish-longitudinal.yml
-          grep -q 'default: false' .github/workflows/publish-longitudinal.yml
+          grep -q "python -m src.transform.reconcile_longitudinal" .github/workflows/publish-gold-analytics.yml
+          grep -q 'published/longitudinal/years=2022-2024' .github/workflows/publish-gold-analytics.yml
