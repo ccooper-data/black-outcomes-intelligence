@@ -1,0 +1,54 @@
+name: Snapshot Longitudinal Dashboard Data
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BUCKET: black-outcomes-intelligence-dev-4623dd8370ffd332f292468c61
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: true}
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::780976819607:role/black-outcomes-github-deploy
+          aws-region: us-east-2
+      - name: Copy and validate aggregated extracts
+        run: |
+          set -euo pipefail
+          mkdir -p data/published
+          for name in trends.csv contrasts.csv; do
+            aws s3 cp "s3://$BUCKET/published/longitudinal/years=2022-2024/$name" "data/published/$name"
+          done
+          test "$(tail -n +2 data/published/trends.csv | wc -l)" -eq 2184
+          test "$(tail -n +2 data/published/contrasts.csv | wc -l)" -eq 1092
+      - name: Verify suppression-safe statistical contract
+        run: |
+          pip install pandas
+          python - <<'PY'
+          import pandas as pd
+          for path in ('data/published/trends.csv', 'data/published/contrasts.csv'):
+              frame = pd.read_csv(path)
+              for flag in [c for c in frame if c.endswith('_is_suppressed')]:
+                  prefix = flag.removesuffix('_is_suppressed')
+                  leaked = frame.loc[frame[flag].astype(bool), [f'{prefix}_{x}' for x in ('estimate','standard_error','ci95_lower','ci95_upper','relative_standard_error')]]
+                  assert leaked.isna().all().all(), (path, prefix)
+          PY
+      - name: Commit dashboard snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/published/trends.csv data/published/contrasts.csv
+          if git diff --cached --quiet; then
+            echo "Longitudinal data already current."
+          else
+            git commit -m "data: snapshot 2022-2024 longitudinal analytics"
+            git push
+          fi

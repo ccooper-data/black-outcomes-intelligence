@@ -1,6 +1,6 @@
 # Black Outcomes Intelligence Platform
 
-Production-oriented cloud analytics portfolio project using 2024 ACS PUMS microdata to study Black American adult marriage, education, income, employment, and related outcomes.
+Production-oriented cloud analytics portfolio project using 2022–2024 ACS PUMS microdata to study Black American adult marriage, education, income, employment, and related outcomes.
 
 ## Architecture
 Census ACS PUMS → validated S3 Bronze → curated Parquet/S3 Silver → replicate-weight Python estimator → versioned CSV/S3 Gold → byte-for-byte published snapshot → Streamlit. All workflows are manually dispatched; the public dashboard reads repository snapshots and requires no AWS access.
@@ -29,3 +29,7 @@ Run `pytest -q` locally. Building and publishing AWS artifacts is manual and use
 ## Phase 2: Black women
 
 Phase 2 adds a reconciled `intersectional.csv` mart and dashboard explorer for Black women by state and age band, with Black men as a descriptive benchmark. Population, marriage, education, employment, and income retain the same replicate-weight uncertainty, denominator, and suppression contract. See [docs/phase2_black_women.md](docs/phase2_black_women.md).
+
+## Phase 3: longitudinal trends
+
+Phase 3 adds 2022–2024 `trends.csv` and direct annual women-minus-men `contrasts.csv`. Each contrast is recomputed from the corresponding 80 replicate estimates; it is not formed by combining published standard errors. Cross-year changes remain descriptive because the pipeline does not have a Census-provided cross-year covariance design. New workflows build, reconcile, optionally publish, byte-verify, and snapshot these aggregates without provisioning infrastructure. See [docs/phase3_longitudinal.md](docs/phase3_longitudinal.md).

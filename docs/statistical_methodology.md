@@ -30,4 +30,6 @@ Bronze validation requires the final and all 80 replicate weights. Silver preser
 
 ## Limitations
 
-No significance tests, multiple-comparison adjustments, causal claims, model-based estimates, or disclosure-avoidance corrections are added in Phase 1. Existing checked-in point-estimate-only snapshots are historical and must not be treated as Phase 1 output; the dashboard now rejects snapshots without uncertainty and suppression fields. A real 2024 refresh requires the official Census archive and authorized manual AWS workflows.
+Phase 3 adds direct within-year Black-women-minus-Black-men contrasts. Each contrast uses the paired difference of all 80 replicate estimates before applying the SDR formula. It does not infer a difference by combining two displayed standard errors.
+
+No cross-year significance tests, multiple-comparison adjustments, causal claims, model-based estimates, or disclosure-avoidance corrections are added. Year-to-year movement is descriptive because the pipeline does not contain a cross-year covariance design. A real multi-year refresh requires each official Census archive and authorized manual AWS workflows.

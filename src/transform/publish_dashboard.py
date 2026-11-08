@@ -25,9 +25,10 @@ def redact_suppressed(frame: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
-def build_candidates(gold_dir: Path, output_dir: Path) -> None:
+def build_candidates(gold_dir: Path, output_dir: Path,
+                     names: tuple[str, ...] = ("national.csv", "states.csv", "intersectional.csv")) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
-    for name in ("national.csv", "states.csv", "intersectional.csv"):
+    for name in names:
         redact_suppressed(pd.read_csv(gold_dir / name)).to_csv(output_dir / name, index=False)
     (output_dir / "manifest.json").write_bytes((gold_dir / "manifest.json").read_bytes())
 
@@ -36,8 +37,12 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--gold-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--longitudinal", action="store_true")
     args = parser.parse_args()
-    build_candidates(args.gold_dir, args.output_dir)
+    names = ("trends.csv", "contrasts.csv") if args.longitudinal else (
+        "national.csv", "states.csv", "intersectional.csv"
+    )
+    build_candidates(args.gold_dir, args.output_dir, names)
 
 
 if __name__ == "__main__":

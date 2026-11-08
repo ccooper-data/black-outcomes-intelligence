@@ -6,7 +6,6 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
-YEAR = 2024
 DATA_DIR = Path(__file__).parent / "data" / "published"
 STATE_NAMES = {
     1:"Alabama",2:"Alaska",4:"Arizona",5:"Arkansas",6:"California",8:"Colorado",9:"Connecticut",10:"Delaware",11:"District of Columbia",12:"Florida",13:"Georgia",15:"Hawaii",16:"Idaho",17:"Illinois",18:"Indiana",19:"Iowa",20:"Kansas",21:"Kentucky",22:"Louisiana",23:"Maine",24:"Maryland",25:"Massachusetts",26:"Michigan",27:"Minnesota",28:"Mississippi",29:"Missouri",30:"Montana",31:"Nebraska",32:"Nevada",33:"New Hampshire",34:"New Jersey",35:"New Mexico",36:"New York",37:"North Carolina",38:"North Dakota",39:"Ohio",40:"Oklahoma",41:"Oregon",42:"Pennsylvania",44:"Rhode Island",45:"South Carolina",46:"South Dakota",47:"Tennessee",48:"Texas",49:"Utah",50:"Vermont",51:"Virginia",53:"Washington",54:"West Virginia",55:"Wisconsin",56:"Wyoming"
@@ -36,7 +35,16 @@ def load_data():
         missing = sorted(required - set(frame.columns))
         if missing:
             raise ValueError(f"Published {name} snapshot lacks Phase 1 statistical fields: {missing}")
-    return national, states, intersectional
+    trends_path = DATA_DIR / "trends.csv"
+    contrasts_path = DATA_DIR / "contrasts.csv"
+    trends = pd.read_csv(trends_path) if trends_path.exists() else pd.DataFrame()
+    contrasts = pd.read_csv(contrasts_path) if contrasts_path.exists() else pd.DataFrame()
+    if not trends.empty:
+        if len(trends) != 2184 or set(trends["survey_year"]) != {2022, 2023, 2024}:
+            raise ValueError("Published longitudinal trend snapshot failed validation.")
+        if len(contrasts) != 1092 or set(contrasts["survey_year"]) != {2022, 2023, 2024}:
+            raise ValueError("Published longitudinal contrast snapshot failed validation.")
+    return national, states, intersectional, trends, contrasts
 
 
 def format_value(value, value_type):
@@ -49,10 +57,10 @@ def format_value(value, value_type):
 
 st.set_page_config(page_title="Black Outcomes Intelligence", page_icon="📊", layout="wide")
 st.title("Black Outcomes Intelligence")
-st.caption("2024 American Community Survey PUMS · weighted estimates for Black adults age 18+")
+st.caption("2022–2024 American Community Survey PUMS · weighted estimates for Black adults age 18+")
 
 try:
-    national, states, intersectional = load_data()
+    national, states, intersectional, trends, contrasts = load_data()
 except Exception as exc:
     st.error("The validated dashboard snapshot is unavailable.")
     st.exception(exc)
@@ -184,6 +192,51 @@ if set(comparison_rows["sex"]) == {"Black women", "Black men"}:
 else:
     st.warning("The selected comparison is unavailable in the validated snapshot.")
 
+st.divider()
+st.subheader("2022–2024 trends and direct comparisons")
+if trends.empty or contrasts.empty:
+    st.info("The longitudinal snapshot has not yet been published. Run the Phase 3 publish and snapshot workflows after merge.")
+else:
+    trends["state_name"] = trends["state"].map(STATE_NAMES).fillna("National")
+    contrasts["state_name"] = contrasts["state"].map(STATE_NAMES).fillna("National")
+    trend_geography = st.selectbox("Trend geography", ["National"] + sorted(states.state_name.dropna().tolist()))
+    trend_age = st.selectbox("Trend age band", ["All ages", "18–24", "25–34", "35–44", "45–54", "55–64", "65+"])
+    trend_metric = st.selectbox(
+        "Trend measure", ["Population", "Marriage rate", "Bachelor's+ rate", "Employment rate", "Mean personal income"]
+    )
+    trend_prefix, trend_kind = comparison_config[trend_metric]
+    selected_trends = trends.loc[
+        (trends["state_name"] == trend_geography) & (trends["age_band"] == trend_age)
+        & ~trends[f"{trend_prefix}_is_suppressed"].astype(bool)
+    ].copy()
+    if selected_trends.empty:
+        st.warning("All estimates for this selection are suppressed under the published stability rules.")
+    else:
+        st.line_chart(
+            selected_trends.pivot(index="survey_year", columns="sex", values=f"{trend_prefix}_estimate"),
+            y_label=trend_metric,
+        )
+        detail = selected_trends[[
+            "survey_year", "sex", f"{trend_prefix}_estimate",
+            f"{trend_prefix}_ci95_lower", f"{trend_prefix}_ci95_upper",
+            f"{trend_prefix}_unweighted_n", f"{trend_prefix}_weighted_denominator",
+        ]]
+        st.dataframe(detail, use_container_width=True, hide_index=True)
+    contrast = contrasts.loc[
+        (contrasts["state_name"] == trend_geography) & (contrasts["age_band"] == trend_age)
+    ].sort_values("survey_year")
+    st.markdown("#### Black women minus Black men")
+    st.caption("Each annual difference and 95% CI is calculated directly from the paired ACS replicate estimates. Cross-year significance is not tested.")
+    visible_contrast = contrast.loc[~contrast[f"{trend_prefix}_is_suppressed"].astype(bool)]
+    if visible_contrast.empty:
+        st.warning("The direct comparison is suppressed for this selection.")
+    else:
+        st.dataframe(visible_contrast[[
+            "survey_year", f"{trend_prefix}_estimate", f"{trend_prefix}_standard_error",
+            f"{trend_prefix}_ci95_lower", f"{trend_prefix}_ci95_upper",
+            f"{trend_prefix}_women_unweighted_n", f"{trend_prefix}_men_unweighted_n",
+        ]], use_container_width=True, hide_index=True)
+
 st.caption("Dashboard data are a versioned snapshot of aggregated Gold outputs; the public application requires no AWS credentials and has no access to Census microdata.")
 with st.expander("Methodology"):
-    st.markdown("Estimates use 2024 ACS 1-Year PUMS person records, restricted to RAC1P=2 (Black alone) and age 18+. Phase 2 uses SEX=2 for Black women and SEX=1 for the Black men descriptive benchmark. Employment includes ESR codes 1, 2, 4, and 5 among records in the ESR labor-force universe. Point estimates use PWGTP. Standard errors use all 80 PWGTP replicate weights and the Census ACS SDR factor 4/80; intervals are estimate ± 1.96 SE (bounded to [0,1] for rates). Every metric publishes its unweighted sample size and weighted denominator. Estimates are suppressed when unweighted n < 30, the denominator is nonpositive, or relative standard error exceeds 30%. These are descriptive survey estimates, not causal claims.")
+    st.markdown("Estimates use 2022–2024 ACS 1-Year PUMS person records, restricted to RAC1P=2 (Black alone) and age 18+. SEX=2 identifies Black women and SEX=1 identifies the Black men benchmark. Employment includes ESR codes 1, 2, 4, and 5 among records in the ESR labor-force universe. Point estimates use PWGTP. Standard errors use all 80 PWGTP replicate weights and the Census ACS SDR factor 4/80; intervals are estimate ± 1.96 SE (bounded to [0,1] for rates). Direct annual contrasts subtract the two groups' estimates and their corresponding replicate estimates. Every metric publishes its unweighted sample size and weighted denominator. Estimates are suppressed when unweighted n < 30, the denominator is nonpositive, or relative standard error exceeds 30%. Cross-year changes are descriptive and are not presented as significance tests. These are survey estimates, not causal claims.")
