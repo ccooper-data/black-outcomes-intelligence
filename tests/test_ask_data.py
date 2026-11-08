@@ -15,6 +15,16 @@ class FakeResponses:
         return SimpleNamespace(output_text=self.answer)
 
 
+class SequencedResponses:
+    def __init__(self, answers):
+        self.answers = iter(answers)
+        self.calls = []
+
+    def create(self, **kwargs):
+        self.calls.append(kwargs)
+        return SimpleNamespace(output_text=next(self.answers))
+
+
 class FakeClient:
     def __init__(self, answer):
         self.responses = FakeResponses(answer)
@@ -69,6 +79,31 @@ def test_generated_numbers_must_exist_in_evidence():
     )
     with pytest.raises(UnsafeAnswerError, match="unsupported numeric"):
         ask_data("What is the rate?", evidence, FakeClient("It is 99.0% [E1]."), "test-model")
+
+
+def test_equivalent_numeric_formatting_is_accepted_without_weakening_units():
+    evidence = (
+        Evidence("national.csv", "married_rate", "2024 | National | Marriage rate: 32.0%.", "2024 national marriage rate", 0.32, False),
+    )
+    result = ask_data("What is the rate?", evidence, FakeClient("In 2024, it was 32% [E1]."), "test-model")
+    assert result.text == "In 2024, it was 32% [E1]."
+    with pytest.raises(UnsafeAnswerError, match="unsupported numeric"):
+        ask_data("What is the rate?", evidence, FakeClient("In 2024, it was $32 [E1]."), "test-model")
+
+
+def test_failed_draft_is_retried_once_with_the_same_evidence_packet():
+    evidence = (
+        Evidence("national.csv", "married_rate", "2024 | National | Marriage rate: 32.0%.", "2024 national marriage rate", 0.32, False),
+    )
+    responses = SequencedResponses(("It was 33.0% [E1].", "In 2024, it was 32.0% [E1]."))
+    client = SimpleNamespace(responses=responses)
+    result = ask_data("What is the 2024 national marriage rate?", evidence, client, "test-model")
+    assert result.text == "In 2024, it was 32.0% [E1]."
+    assert len(responses.calls) == 2
+    assert responses.calls[0]["store"] is False
+    assert responses.calls[1]["store"] is False
+    assert responses.calls[0]["input"][-1]["content"] == responses.calls[1]["input"][-2]["content"]
+    assert "33.0%" not in str(responses.calls[1]["input"])
 
 
 def test_generated_citations_must_resolve():
