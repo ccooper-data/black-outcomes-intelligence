@@ -24,6 +24,8 @@ Suppressed point estimates remain only in private Gold for auditability. Public 
 
 `src.transform.reconcile` compares every normalized Bronze and Silver row with a streaming SHA-256 fingerprint, rebuilds Gold from Silver, and compares Gold with published output using exact schema/shape checks and `1e-12` numeric tolerance. Streaming keeps the national microdata check within a standard GitHub runner's memory. CI runs this end-to-end on deterministic synthetic records, including deliberate drift-failure tests. The production workflow independently downloads the authoritative Bronze ZIP, Silver Parquet, and Gold CSVs, builds the dashboard candidate, and invokes the full source-to-dashboard reconciliation. Its `publish` input defaults to `false`, allowing the real AWS-backed path to be exercised without writing the published prefix; an explicit `publish=true` run is required to write and byte-verify objects. Raw microdata are never committed.
 
+Gold workflows upload an explicit allowlist of expected artifacts rather than synchronizing a prefix with deletion enabled. A missing local artifact fails the job before its upload, and CI prevents destructive Gold-prefix synchronization from being reintroduced.
+
 Run `pytest -q` locally. Building and publishing AWS artifacts is manual and uses existing S3 only; this Phase 1 change creates no infrastructure and runs no deployment automatically.
 
 ## Phase 2: Black women

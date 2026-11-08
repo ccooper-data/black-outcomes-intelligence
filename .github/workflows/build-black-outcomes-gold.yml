@@ -45,7 +45,10 @@ jobs:
                   required = {f'{metric}_{x}' for x in ('estimate','standard_error','ci95_lower','ci95_upper','unweighted_n','weighted_denominator','is_suppressed','suppression_reason')}
                   assert required <= set(d.columns), required - set(d.columns)
           PY
-          aws s3 sync /tmp/gold "s3://$BUCKET/gold/black_outcomes/year=${{ inputs.year }}/" --delete
+          for name in national.csv states.csv intersectional.csv manifest.json; do
+            test -f "/tmp/gold/$name"
+            aws s3 cp "/tmp/gold/$name" "s3://$BUCKET/gold/black_outcomes/year=${{ inputs.year }}/$name"
+          done
       - name: Build 2022-2024 longitudinal Gold
         if: ${{ inputs.year == '2022-2024' }}
         run: |
@@ -68,4 +71,7 @@ jobs:
           assert not trends.duplicated(['survey_year','state','sex','age_band']).any()
           assert not contrasts.duplicated(['survey_year','state','age_band']).any()
           PY
-          aws s3 sync /tmp/longitudinal "s3://$BUCKET/gold/black_outcomes_longitudinal/years=2022-2024/" --delete
+          for name in trends.csv contrasts.csv manifest.json; do
+            test -f "/tmp/longitudinal/$name"
+            aws s3 cp "/tmp/longitudinal/$name" "s3://$BUCKET/gold/black_outcomes_longitudinal/years=2022-2024/$name"
+          done
