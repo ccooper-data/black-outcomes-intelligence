@@ -53,6 +53,17 @@ jobs:
             --gold-dir /tmp/gold-model --published-dir /tmp/published-model \
             --report /tmp/model-reconciliation.json
           cat /tmp/model-reconciliation.json
+      - name: Retain reconciled aggregate evidence for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-4-model-review-${{ github.run_id }}
+          path: |
+            /tmp/published-model/model_metrics.csv
+            /tmp/published-model/model_calibration.csv
+            /tmp/published-model/model_card.json
+            /tmp/model-reconciliation.json
+          retention-days: 7
+          if-no-files-found: error
       - name: Publish aggregate artifacts only after reconciliation
         if: ${{ inputs.publish }}
         run: |
@@ -71,4 +82,4 @@ jobs:
           done
       - name: Record dry-run result
         if: ${{ !inputs.publish }}
-        run: echo "Phase 4 reconciliation passed; no Gold or published objects were written."
+        run: echo "Phase 4 reconciliation passed; aggregate review evidence was retained, and no Gold or published S3 objects were written."
