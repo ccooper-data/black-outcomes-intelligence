@@ -42,20 +42,43 @@ def reconcile(source: pd.DataFrame, silver: pd.DataFrame, gold_national: pd.Data
     }
 
 
+def reconcile_publication(gold_national: pd.DataFrame, gold_states: pd.DataFrame,
+                          published_national: pd.DataFrame,
+                          published_states: pd.DataFrame, year: int = 2024) -> dict[str, object]:
+    """Gate publication by comparing the dashboard artifacts with approved Gold."""
+    _assert_frames_equal(gold_national, published_national, ["survey_year"], "Gold-to-published national")
+    _assert_frames_equal(gold_states, published_states, ["state"], "Gold-to-published states")
+    return {
+        "status": "passed", "year": year, "national_rows": len(gold_national),
+        "state_rows": len(gold_states), "checks": ["Gold-to-published"],
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--source", type=Path, required=True)
-    parser.add_argument("--silver", type=Path, required=True)
+    parser.add_argument("--source", type=Path)
+    parser.add_argument("--silver", type=Path)
     parser.add_argument("--gold-dir", type=Path, required=True)
     parser.add_argument("--published-dir", type=Path, required=True)
+    parser.add_argument("--publication-only", action="store_true")
     parser.add_argument("--year", type=int, default=2024)
     parser.add_argument("--report", type=Path)
     args = parser.parse_args()
-    report = reconcile(
-        pd.read_parquet(args.source), pd.read_parquet(args.silver),
-        pd.read_csv(args.gold_dir / "national.csv"), pd.read_csv(args.gold_dir / "states.csv"),
-        pd.read_csv(args.published_dir / "national.csv"), pd.read_csv(args.published_dir / "states.csv"), args.year,
-    )
+    gold_national = pd.read_csv(args.gold_dir / "national.csv")
+    gold_states = pd.read_csv(args.gold_dir / "states.csv")
+    published_national = pd.read_csv(args.published_dir / "national.csv")
+    published_states = pd.read_csv(args.published_dir / "states.csv")
+    if args.publication_only:
+        report = reconcile_publication(
+            gold_national, gold_states, published_national, published_states, args.year,
+        )
+    else:
+        if args.source is None or args.silver is None:
+            parser.error("--source and --silver are required unless --publication-only is set")
+        report = reconcile(
+            pd.read_parquet(args.source), pd.read_parquet(args.silver),
+            gold_national, gold_states, published_national, published_states, args.year,
+        )
     payload = json.dumps(report, indent=2) + "\n"
     if args.report:
         args.report.write_text(payload)

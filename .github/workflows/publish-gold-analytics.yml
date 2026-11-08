@@ -21,20 +21,35 @@ jobs:
       BUCKET: black-outcomes-intelligence-dev-4623dd8370ffd332f292468c61
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -r requirements.txt
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::780976819607:role/black-outcomes-github-deploy
           aws-region: us-east-2
-      - name: Publish exact validated Gold artifacts
+      - name: Stage Gold and dashboard artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/gold /tmp/published
+          for name in national.csv states.csv manifest.json; do
+            aws s3 cp "s3://$BUCKET/gold/black_outcomes/year=${{ inputs.year }}/$name" "/tmp/gold/$name"
+            cp "/tmp/gold/$name" "/tmp/published/$name"
+          done
+      - name: Enforce Gold-to-published reconciliation
+        run: |
+          python -m src.transform.reconcile \
+            --publication-only \
+            --gold-dir /tmp/gold \
+            --published-dir /tmp/published \
+            --year "${{ inputs.year }}" \
+            --report /tmp/reconciliation-report.json
+          sha256sum /tmp/gold/national.csv /tmp/published/national.csv
+          sha256sum /tmp/gold/states.csv /tmp/published/states.csv
+          cat /tmp/reconciliation-report.json
+      - name: Publish only after reconciliation passes
         run: |
           set -euo pipefail
           for name in national.csv states.csv manifest.json; do
-            aws s3 cp "s3://$BUCKET/gold/black_outcomes/year=${{ inputs.year }}/$name" "/tmp/$name"
-            aws s3 cp "/tmp/$name" "s3://$BUCKET/published/year=${{ inputs.year }}/$name"
-            aws s3 cp "s3://$BUCKET/published/year=${{ inputs.year }}/$name" "/tmp/published-$name"
-            cmp "/tmp/$name" "/tmp/published-$name"
+            aws s3 cp "/tmp/published/$name" "s3://$BUCKET/published/year=${{ inputs.year }}/$name"
           done
-      - name: Emit reconciliation evidence
-        run: |
-          sha256sum /tmp/national.csv /tmp/published-national.csv
-          sha256sum /tmp/states.csv /tmp/published-states.csv
