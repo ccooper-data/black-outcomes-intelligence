@@ -36,10 +36,10 @@ jobs:
         run: |
           python - <<'PY'
           import pandas as pd
-          for path in ('/tmp/gold/national.csv', '/tmp/gold/states.csv'):
+          for path in ('/tmp/gold/national.csv', '/tmp/gold/states.csv', '/tmp/gold/intersectional.csv'):
               d = pd.read_csv(path)
               assert len(d) > 0
-              for metric in ('black_population', 'married_rate', 'bachelors_plus_rate', 'mean_personal_income'):
+              for metric in ('black_population', 'married_rate', 'bachelors_plus_rate', 'employment_rate', 'mean_personal_income'):
                   required = {f'{metric}_{x}' for x in ('estimate','standard_error','ci95_lower','ci95_upper','unweighted_n','weighted_denominator','is_suppressed','suppression_reason')}
                   assert required <= set(d.columns), required - set(d.columns)
           PY

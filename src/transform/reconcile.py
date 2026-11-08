@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from src.transform.acs_pums_silver import COLUMNS, transform_frame
-from src.transform.build_marts import build_gold
+from src.transform.build_marts import build_gold, build_intersectional
 
 
 def read_source(path: Path) -> pd.DataFrame:
@@ -83,14 +83,27 @@ def _assert_frames_equal(expected: pd.DataFrame, actual: pd.DataFrame, keys: lis
 
 def reconcile(source: pd.DataFrame, silver: pd.DataFrame, gold_national: pd.DataFrame,
               gold_states: pd.DataFrame, published_national: pd.DataFrame,
-              published_states: pd.DataFrame, year: int = 2024) -> dict[str, object]:
+              published_states: pd.DataFrame, year: int = 2024,
+              gold_intersectional: pd.DataFrame | None = None,
+              published_intersectional: pd.DataFrame | None = None) -> dict[str, object]:
     canonical_silver = transform_frame(source)
     _assert_frames_equal(canonical_silver[COLUMNS], silver[COLUMNS], ["SERIALNO", "SPORDER"], "source-to-Silver")
     expected_national, expected_states = build_gold(silver, year)
     _assert_frames_equal(expected_national, gold_national, ["survey_year"], "Silver-to-Gold national")
     _assert_frames_equal(expected_states, gold_states, ["state"], "Silver-to-Gold states")
+    if gold_intersectional is not None:
+        expected_intersectional = build_intersectional(silver, year)
+        _assert_frames_equal(
+            expected_intersectional, gold_intersectional, ["state", "sex", "age_band"],
+            "Silver-to-Gold intersectional",
+        )
     _assert_frames_equal(gold_national, published_national, ["survey_year"], "Gold-to-published national")
     _assert_frames_equal(gold_states, published_states, ["state"], "Gold-to-published states")
+    if gold_intersectional is not None and published_intersectional is not None:
+        _assert_frames_equal(
+            gold_intersectional, published_intersectional, ["state", "sex", "age_band"],
+            "Gold-to-published intersectional",
+        )
     return {
         "status": "passed", "year": year, "source_rows": len(source), "silver_rows": len(silver),
         "national_rows": len(gold_national), "state_rows": len(gold_states),
@@ -100,35 +113,55 @@ def reconcile(source: pd.DataFrame, silver: pd.DataFrame, gold_national: pd.Data
 
 def reconcile_publication(gold_national: pd.DataFrame, gold_states: pd.DataFrame,
                           published_national: pd.DataFrame,
-                          published_states: pd.DataFrame, year: int = 2024) -> dict[str, object]:
+                          published_states: pd.DataFrame, year: int = 2024,
+                          gold_intersectional: pd.DataFrame | None = None,
+                          published_intersectional: pd.DataFrame | None = None) -> dict[str, object]:
     """Gate publication by comparing the dashboard artifacts with approved Gold."""
     _assert_frames_equal(gold_national, published_national, ["survey_year"], "Gold-to-published national")
     _assert_frames_equal(gold_states, published_states, ["state"], "Gold-to-published states")
-    return {
+    if gold_intersectional is not None and published_intersectional is not None:
+        _assert_frames_equal(
+            gold_intersectional, published_intersectional, ["state", "sex", "age_band"],
+            "Gold-to-published intersectional",
+        )
+    report = {
         "status": "passed", "year": year, "national_rows": len(gold_national),
         "state_rows": len(gold_states), "checks": ["Gold-to-published"],
     }
+    if gold_intersectional is not None:
+        report["intersectional_rows"] = len(gold_intersectional)
+    return report
 
 
 def reconcile_files(source: Path, silver_path: Path, gold_national: pd.DataFrame,
                     gold_states: pd.DataFrame, published_national: pd.DataFrame,
-                    published_states: pd.DataFrame, year: int = 2024) -> dict[str, object]:
+                    published_states: pd.DataFrame, year: int = 2024,
+                    gold_intersectional: pd.DataFrame | None = None,
+                    published_intersectional: pd.DataFrame | None = None) -> dict[str, object]:
     if source.suffix.lower() != ".zip":
         return reconcile(
             read_source(source), pd.read_parquet(silver_path), gold_national, gold_states,
-            published_national, published_states, year,
+            published_national, published_states, year, gold_intersectional, published_intersectional,
         )
     lineage = reconcile_source_to_silver_files(source, silver_path)
     silver = pd.read_parquet(silver_path)
     expected_national, expected_states = build_gold(silver, year)
     _assert_frames_equal(expected_national, gold_national, ["survey_year"], "Silver-to-Gold national")
     _assert_frames_equal(expected_states, gold_states, ["state"], "Silver-to-Gold states")
+    if gold_intersectional is not None:
+        expected_intersectional = build_intersectional(silver, year)
+        _assert_frames_equal(
+            expected_intersectional, gold_intersectional, ["state", "sex", "age_band"],
+            "Silver-to-Gold intersectional",
+        )
     publication = reconcile_publication(
         gold_national, gold_states, published_national, published_states, year,
+        gold_intersectional, published_intersectional,
     )
     return {
         "status": "passed", "year": year, **lineage,
         "national_rows": publication["national_rows"], "state_rows": publication["state_rows"],
+        "intersectional_rows": publication.get("intersectional_rows", 0),
         "checks": ["source-to-Silver", "Silver-to-Gold", "Gold-to-published"],
     }
 
@@ -147,9 +180,12 @@ def main() -> None:
     gold_states = pd.read_csv(args.gold_dir / "states.csv")
     published_national = pd.read_csv(args.published_dir / "national.csv")
     published_states = pd.read_csv(args.published_dir / "states.csv")
+    gold_intersectional = pd.read_csv(args.gold_dir / "intersectional.csv")
+    published_intersectional = pd.read_csv(args.published_dir / "intersectional.csv")
     if args.publication_only:
         report = reconcile_publication(
             gold_national, gold_states, published_national, published_states, args.year,
+            gold_intersectional, published_intersectional,
         )
     else:
         if args.source is None or args.silver is None:
@@ -157,6 +193,7 @@ def main() -> None:
         report = reconcile_files(
             args.source, args.silver,
             gold_national, gold_states, published_national, published_states, args.year,
+            gold_intersectional, published_intersectional,
         )
     payload = json.dumps(report, indent=2) + "\n"
     if args.report:

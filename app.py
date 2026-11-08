@@ -16,24 +16,27 @@ STATE_NAMES = {
 def load_data():
     national_path = DATA_DIR / "national.csv"
     states_path = DATA_DIR / "states.csv"
-    if not national_path.exists() or not states_path.exists():
+    intersectional_path = DATA_DIR / "intersectional.csv"
+    if not national_path.exists() or not states_path.exists() or not intersectional_path.exists():
         raise FileNotFoundError("Run the Snapshot Dashboard Data workflow before deploying the app.")
     national = pd.read_csv(national_path)
     states = pd.read_csv(states_path)
-    if len(national) != 1 or len(states) != 51:
+    intersectional = pd.read_csv(intersectional_path)
+    if len(national) != 1 or len(states) != 51 or len(intersectional) != 728:
         raise ValueError("Published dashboard snapshot failed row-count validation.")
     required = {
         "black_population_estimate", "black_population_standard_error", "black_population_ci95_lower",
         "black_population_ci95_upper", "black_population_unweighted_n", "black_population_weighted_denominator",
         "black_population_is_suppressed", "married_rate_estimate", "married_rate_is_suppressed",
         "bachelors_plus_rate_estimate", "bachelors_plus_rate_is_suppressed",
+        "employment_rate_estimate", "employment_rate_is_suppressed",
         "mean_personal_income_estimate", "mean_personal_income_is_suppressed",
     }
-    for name, frame in (("national", national), ("states", states)):
+    for name, frame in (("national", national), ("states", states), ("intersectional", intersectional)):
         missing = sorted(required - set(frame.columns))
         if missing:
             raise ValueError(f"Published {name} snapshot lacks Phase 1 statistical fields: {missing}")
-    return national, states
+    return national, states, intersectional
 
 
 def format_value(value, value_type):
@@ -49,13 +52,14 @@ st.title("Black Outcomes Intelligence")
 st.caption("2024 American Community Survey PUMS · weighted estimates for Black adults age 18+")
 
 try:
-    national, states = load_data()
+    national, states, intersectional = load_data()
 except Exception as exc:
     st.error("The validated dashboard snapshot is unavailable.")
     st.exception(exc)
     st.stop()
 
 states["state_name"] = states["state"].map(STATE_NAMES)
+intersectional["state_name"] = intersectional["state"].map(STATE_NAMES).fillna("National")
 n = national.iloc[0]
 
 def metric_text(row, prefix, kind):
@@ -130,6 +134,56 @@ else:
         "The current PUMS Gold mart supports state geography, so the dashboard will not invent city-level values."
     )
 
+st.divider()
+st.subheader("Black women: intersectional outcomes")
+st.caption("Compare Black women with Black men within the same state and age band. Comparisons are descriptive; no untested significance claim is made.")
+
+comparison_geography = st.selectbox(
+    "Intersectional geography", ["National"] + sorted(states.state_name.dropna().tolist()),
+)
+comparison_age = st.selectbox(
+    "Age band", ["All ages", "18–24", "25–34", "35–44", "45–54", "55–64", "65+"],
+)
+comparison_metric = st.selectbox(
+    "Intersectional measure",
+    ["Population", "Marriage rate", "Bachelor's+ rate", "Employment rate", "Mean personal income"],
+)
+comparison_config = {
+    "Population": ("black_population", "compact"),
+    "Marriage rate": ("married_rate", "percent"),
+    "Bachelor's+ rate": ("bachelors_plus_rate", "percent"),
+    "Employment rate": ("employment_rate", "percent"),
+    "Mean personal income": ("mean_personal_income", "currency"),
+}
+comparison_prefix, comparison_kind = comparison_config[comparison_metric]
+comparison_rows = intersectional.loc[
+    (intersectional["state_name"] == comparison_geography)
+    & (intersectional["age_band"] == comparison_age)
+]
+
+if set(comparison_rows["sex"]) == {"Black women", "Black men"}:
+    women = comparison_rows.loc[comparison_rows["sex"] == "Black women"].iloc[0]
+    men = comparison_rows.loc[comparison_rows["sex"] == "Black men"].iloc[0]
+    women_col, men_col = st.columns(2)
+    women_col.metric("Black women", metric_text(women, comparison_prefix, comparison_kind))
+    men_col.metric("Black men — descriptive benchmark", metric_text(men, comparison_prefix, comparison_kind))
+    women_col.caption(
+        f"Unweighted n: {int(women[f'{comparison_prefix}_unweighted_n']):,} · "
+        f"Weighted denominator: {women[f'{comparison_prefix}_weighted_denominator']:,.0f}"
+    )
+    men_col.caption(
+        f"Unweighted n: {int(men[f'{comparison_prefix}_unweighted_n']):,} · "
+        f"Weighted denominator: {men[f'{comparison_prefix}_weighted_denominator']:,.0f}"
+    )
+    comparison_chart = comparison_rows.loc[
+        ~comparison_rows[f"{comparison_prefix}_is_suppressed"].astype(bool),
+        ["sex", f"{comparison_prefix}_estimate"],
+    ].set_index("sex")
+    if not comparison_chart.empty:
+        st.bar_chart(comparison_chart, y_label=comparison_metric, height=280)
+else:
+    st.warning("The selected comparison is unavailable in the validated snapshot.")
+
 st.caption("Dashboard data are a versioned snapshot of aggregated Gold outputs; the public application requires no AWS credentials and has no access to Census microdata.")
 with st.expander("Methodology"):
-    st.markdown("Estimates use 2024 ACS 1-Year PUMS person records, restricted to RAC1P=2 (Black alone) and age 18+. Point estimates use PWGTP. Standard errors use all 80 PWGTP replicate weights and the Census ACS SDR factor 4/80; intervals are estimate ± 1.96 SE (bounded to [0,1] for rates). Every metric publishes its unweighted sample size and weighted denominator. Estimates are suppressed when unweighted n < 30, the denominator is nonpositive, or relative standard error exceeds 30%. These are descriptive survey estimates, not causal claims.")
+    st.markdown("Estimates use 2024 ACS 1-Year PUMS person records, restricted to RAC1P=2 (Black alone) and age 18+. Phase 2 uses SEX=2 for Black women and SEX=1 for the Black men descriptive benchmark. Employment includes ESR codes 1, 2, 4, and 5 among records in the ESR labor-force universe. Point estimates use PWGTP. Standard errors use all 80 PWGTP replicate weights and the Census ACS SDR factor 4/80; intervals are estimate ± 1.96 SE (bounded to [0,1] for rates). Every metric publishes its unweighted sample size and weighted denominator. Estimates are suppressed when unweighted n < 30, the denominator is nonpositive, or relative standard error exceeds 30%. These are descriptive survey estimates, not causal claims.")
