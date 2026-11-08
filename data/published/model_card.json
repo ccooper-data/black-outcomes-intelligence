@@ -1,0 +1,108 @@
+{
+  "phase": 4,
+  "purpose": "population-level predictive benchmark; not individual scoring or causal inference",
+  "outcome": "MAR == 1 among Black-alone adults age 18+",
+  "training_years": [
+    2022,
+    2023
+  ],
+  "holdout_year": 2024,
+  "models": [
+    "weighted_prevalence_baseline",
+    "survey_weighted_logistic"
+  ],
+  "features": [
+    "AGEP",
+    "SEX",
+    "STATE",
+    "SCHL",
+    "employment_status"
+  ],
+  "training_rows": 484173,
+  "holdout_rows": 240035,
+  "performance_uncertainty": "80 ACS person replicate weights with SDR factor 4/80; fitted model held fixed",
+  "coefficient_interpretation": "associational, conditional on included features; not causal",
+  "largest_absolute_coefficients": [
+    {
+      "feature": "categories__STATE_38.0",
+      "coefficient": 0.9536872189667615
+    },
+    {
+      "feature": "categories__STATE_23.0",
+      "coefficient": 0.8949951258569719
+    },
+    {
+      "feature": "categories__SCHL_23.0",
+      "coefficient": 0.8811221408490119
+    },
+    {
+      "feature": "categories__SCHL_24.0",
+      "coefficient": 0.873572440007095
+    },
+    {
+      "feature": "categories__STATE_11.0",
+      "coefficient": -0.8349479397691129
+    },
+    {
+      "feature": "categories__SCHL_22.0",
+      "coefficient": 0.7234226862219814
+    },
+    {
+      "feature": "age__AGEP",
+      "coefficient": 0.692498104801631
+    },
+    {
+      "feature": "categories__SCHL_8.0",
+      "coefficient": -0.6371468706015946
+    },
+    {
+      "feature": "categories__SCHL_2.0",
+      "coefficient": 0.6353104298672116
+    },
+    {
+      "feature": "categories__SCHL_10.0",
+      "coefficient": -0.6254114592987567
+    },
+    {
+      "feature": "categories__SCHL_6.0",
+      "coefficient": -0.5353987690192086
+    },
+    {
+      "feature": "categories__employment_status_unemployed",
+      "coefficient": -0.532459612788548
+    },
+    {
+      "feature": "categories__SCHL_12.0",
+      "coefficient": -0.5137414105648734
+    },
+    {
+      "feature": "categories__SCHL_21.0",
+      "coefficient": 0.5076515536661897
+    },
+    {
+      "feature": "categories__SCHL_11.0",
+      "coefficient": -0.5059978229922708
+    },
+    {
+      "feature": "categories__STATE_15.0",
+      "coefficient": 0.4931019639438897
+    },
+    {
+      "feature": "categories__SCHL_7.0",
+      "coefficient": -0.4909980173866406
+    },
+    {
+      "feature": "categories__SCHL_14.0",
+      "coefficient": -0.49049643889851335
+    },
+    {
+      "feature": "categories__STATE_49.0",
+      "coefficient": 0.486620714995896
+    },
+    {
+      "feature": "categories__SEX_2.0",
+      "coefficient": -0.4426869774204633
+    }
+  ],
+  "person_level_predictions_published": false
+}
