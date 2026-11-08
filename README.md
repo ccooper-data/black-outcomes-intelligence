@@ -22,6 +22,6 @@ Suppressed point estimates remain in the private analytical artifact for auditab
 
 ## Reconciliation and testing
 
-`src.transform.reconcile` reconstructs Silver from source columns, rebuilds Gold from Silver, and compares Gold with published output using exact schema/shape checks and `1e-12` numeric tolerance. CI runs this end-to-end on deterministic synthetic records, including deliberate drift-failure tests. The production publish workflow invokes the same module as a fail-closed Gold-to-dashboard gate and emits a reconciliation report; CI verifies that invocation remains wired. Raw microdata are never committed.
+`src.transform.reconcile` reconstructs Silver from source columns, rebuilds Gold from Silver, and compares Gold with published output using exact schema/shape checks and `1e-12` numeric tolerance. CI runs this end-to-end on deterministic synthetic records, including deliberate drift-failure tests. Before writing the published prefix, the production workflow independently downloads the authoritative Bronze ZIP, Silver Parquet, and Gold CSVs, builds the dashboard candidate, and invokes the full source-to-dashboard reconciliation. CI verifies that the Bronze and Silver inputs remain wired to that gate. Raw microdata are never committed.
 
 Run `pytest -q` locally. Building and publishing AWS artifacts is manual and uses existing S3 only; this Phase 1 change creates no infrastructure and runs no deployment automatically.

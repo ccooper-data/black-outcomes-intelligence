@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import zipfile
 from pathlib import Path
 
 import numpy as np
@@ -10,6 +11,23 @@ import pandas as pd
 
 from src.transform.acs_pums_silver import COLUMNS, transform_frame
 from src.transform.build_marts import build_gold
+
+
+def read_source(path: Path) -> pd.DataFrame:
+    """Read a test Parquet source or the authoritative Census Bronze ZIP."""
+    if path.suffix.lower() == ".parquet":
+        return pd.read_parquet(path)
+    if path.suffix.lower() != ".zip" or not zipfile.is_zipfile(path):
+        raise ValueError("Source must be Parquet or a valid Census PUMS ZIP")
+    frames: list[pd.DataFrame] = []
+    with zipfile.ZipFile(path) as bundle:
+        names = sorted(name for name in bundle.namelist() if name.lower().endswith(".csv"))
+        if not names:
+            raise ValueError("Census PUMS ZIP contains no CSV files")
+        for name in names:
+            with bundle.open(name) as stream:
+                frames.append(pd.read_csv(stream, usecols=COLUMNS, low_memory=False))
+    return pd.concat(frames, ignore_index=True)
 
 
 def _assert_frames_equal(expected: pd.DataFrame, actual: pd.DataFrame, keys: list[str], label: str) -> None:
@@ -76,7 +94,7 @@ def main() -> None:
         if args.source is None or args.silver is None:
             parser.error("--source and --silver are required unless --publication-only is set")
         report = reconcile(
-            pd.read_parquet(args.source), pd.read_parquet(args.silver),
+            read_source(args.source), pd.read_parquet(args.silver),
             gold_national, gold_states, published_national, published_states, args.year,
         )
     payload = json.dumps(report, indent=2) + "\n"

@@ -1,10 +1,11 @@
 import pandas as pd
 import pytest
+import zipfile
 
 from src.ingest.acs_pums import PERSON_REPLICATE_WEIGHTS
 from src.transform.acs_pums_silver import transform_frame
 from src.transform.build_marts import build_gold
-from src.transform.reconcile import reconcile, reconcile_publication
+from src.transform.reconcile import read_source, reconcile, reconcile_publication
 
 
 def source_frame():
@@ -39,3 +40,15 @@ def test_publication_gate_fails_on_dashboard_drift():
     drifted.loc[0, "black_population_estimate"] += 1
     with pytest.raises(AssertionError, match="Gold-to-published national"):
         reconcile_publication(national, states, drifted, states.copy())
+
+
+def test_authoritative_bronze_zip_is_read_for_reconciliation(tmp_path):
+    source = source_frame()
+    csv_path = tmp_path / "persons.csv"
+    archive = tmp_path / "source.zip"
+    source.to_csv(csv_path, index=False)
+    with zipfile.ZipFile(archive, "w") as bundle:
+        bundle.write(csv_path, arcname="psam_pusa.csv")
+    observed = read_source(archive)
+    assert len(observed) == len(source)
+    assert set(observed.columns) == set(source.columns)
