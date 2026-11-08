@@ -41,6 +41,16 @@ def test_broad_trend_defaults_to_all_ages_and_model_terms_route_to_models():
     assert "overall=All Black adults" in models[0].text
 
 
+def test_specific_metric_outranks_generic_population_language():
+    evidence = build_evidence_store(__import__("pathlib").Path("data/published"))
+    selected = retrieve_evidence(
+        "What is the 2024 national marriage rate for all Black adults?", evidence
+    )
+    assert selected[0].metric == "married_rate"
+    assert selected[0].source == "national.csv"
+    assert "Marriage rate: 32.0%" in selected[0].text
+
+
 def test_api_request_is_not_stored_and_uses_aggregate_packet():
     evidence = (
         Evidence("national.csv", "married_rate", "2024 | National | Marriage rate: 32.0% [public aggregate].", "2024 national marriage rate", 0.32, False),

@@ -166,10 +166,16 @@ def retrieve_evidence(question: str, evidence: Sequence[Evidence], limit: int = 
     terms = _query_terms(question)
     query = question.lower()
     ranking = any(term in terms for term in {"top", "highest", "lowest", "best", "worst", "rank"})
-    requested_metric = next(
-        (prefix for prefix, (_, _, aliases) in METRICS.items() if terms.intersection(aliases)),
-        None,
+    original_words = set(re.findall(r"[a-z0-9]+", query))
+    metric_priority = (
+        "mean_personal_income", "married_rate", "bachelors_plus_rate",
+        "employment_rate", "black_population",
     )
+    requested_metric = next((
+        prefix for prefix in metric_priority
+        if original_words.intersection(METRICS[prefix][2])
+        and not (prefix == "black_population" and original_words.intersection({"adults"}) == {"adults"})
+    ), None)
     candidates = list(evidence)
     model_query = any(term in query for term in ("model", "brier", "log loss", "prediction", "holdout"))
     if model_query:
@@ -196,16 +202,18 @@ def retrieve_evidence(question: str, evidence: Sequence[Evidence], limit: int = 
     state_phrases = [name.lower() for name in STATE_NAMES.values() if name.lower() in query]
     age_requested = any(age.lower() in query for age in ("18–24", "25–34", "35–44", "45–54", "55–64", "65+", "all ages"))
     subgroup_requested = age_requested or bool(state_phrases) or any(term in terms for term in {"women", "woman", "men", "man"})
+    all_black_adults = "all black adults" in query
 
     def score(item: Evidence) -> tuple[int, int]:
         overlap = sum(1 for term in terms if re.search(rf"\b{re.escape(term)}\b", item.search_text))
         exact_state = 20 if any(name in item.search_text for name in state_phrases) else 0
         national = 2 if "national" in item.search_text else 0
         all_ages = 8 if not age_requested and "| all ages |" in item.search_text else 0
+        national_aggregate = 8 if all_black_adults and item.source == "national.csv" else 0
         overall_model = 8 if model_query and not subgroup_requested and "overall=all black adults" in item.search_text else 0
         current_snapshot = 3 if not trend_query and item.source == "intersectional.csv" else 0
         contrast_penalty = -10 if not contrast_query and "women minus black men" in item.search_text else 0
-        return overlap + exact_state + national + all_ages + overall_model + current_snapshot + contrast_penalty, -len(item.text)
+        return overlap + exact_state + national + all_ages + national_aggregate + overall_model + current_snapshot + contrast_penalty, -len(item.text)
 
     ranked = sorted(candidates, key=score, reverse=True)
     selected = [item for item in ranked if score(item)[0] > 0][:limit]
