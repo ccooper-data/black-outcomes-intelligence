@@ -43,6 +43,13 @@ def test_build_report_is_deterministic_and_complete(tmp_path):
     assert "-8.9%" in markdown
     assert "not causal" in markdown.lower()
     assert "Largest five absolute publishable differences" in markdown
+    assert "the other component remains visible only when it independently passes" in markdown
+
+    report_html = (first / "research_findings.html").read_text()
+    assert "<strong>Release:</strong>" in report_html
+    assert "<code>inference.csv</code>" in report_html
+    assert "**Release:**" not in report_html
+    assert "`inference.csv`" not in report_html
 
     appendix = pd.read_csv(first / "research_findings_appendix.csv")
     assert len(appendix) == 208
