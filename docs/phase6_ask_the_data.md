@@ -10,7 +10,7 @@ Retrieval selects at most 16 relevant records for each question. The OpenAI requ
 
 ## Answer safeguards
 
-The system instructions require evidence citations, forbid causal or individual claims, and prohibit calculation or invention. Application code then rejects an answer unless it cites supplied evidence IDs. It also rejects any numeric token that does not appear in the evidence packet. A rejected answer is not displayed.
+The system instructions require evidence citations, forbid causal or individual claims, and prohibit calculation or invention. Application code then rejects an answer unless it cites supplied evidence IDs. It rejects any numeric token that does not appear in the evidence packet, and every numeric sentence must cite a record containing those exact numbers. A rejected answer is not displayed.
 
 These controls reduce, but cannot eliminate, language-model error. The evidence expander shows every aggregate record supplied to the model so users can verify the answer. The deterministic dashboard remains the authoritative presentation.
 

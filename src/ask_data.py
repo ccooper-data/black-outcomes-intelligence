@@ -219,14 +219,32 @@ def _number_tokens(text: str) -> set[str]:
     return {token.replace("$", "").replace(",", "").replace("%", "") for token in tokens}
 
 
-def _validate_answer(answer: str, packet: str, allowed_ids: set[str]) -> None:
+def _validate_answer(answer: str, selected: Sequence[Evidence]) -> None:
+    evidence_by_id = {f"E{index}": item.text for index, item in enumerate(selected, start=1)}
+    allowed_ids = set(evidence_by_id)
     citations = set(re.findall(r"\[(E\d+)\]", answer))
     if not citations or not citations.issubset(allowed_ids):
         raise UnsafeAnswerError("The response did not provide valid evidence citations.")
     answer_without_citations = re.sub(r"\[E\d+\]", "", answer)
+    packet = "\n".join(evidence_by_id.values())
     unsupported = _number_tokens(answer_without_citations) - _number_tokens(packet)
     if unsupported:
         raise UnsafeAnswerError(f"The response introduced unsupported numeric values: {sorted(unsupported)}")
+    for sentence in re.split(r"(?<=[.!?])(?:\s+|$)|\n+", answer):
+        numbers = _number_tokens(re.sub(r"\[E\d+\]", "", sentence))
+        if not numbers:
+            continue
+        sentence_citations = set(re.findall(r"\[(E\d+)\]", sentence))
+        if not sentence_citations:
+            raise UnsafeAnswerError("A numeric claim did not include an evidence citation.")
+        cited_numbers: set[str] = set()
+        for evidence_id in sentence_citations:
+            cited_numbers.update(_number_tokens(evidence_by_id[evidence_id]))
+        misattributed = numbers - cited_numbers
+        if misattributed:
+            raise UnsafeAnswerError(
+                f"A numeric claim was not supported by its cited evidence: {sorted(misattributed)}"
+            )
 
 
 def ask_data(
@@ -265,5 +283,5 @@ def ask_data(
         store=False,
     )
     answer = response.output_text.strip()
-    _validate_answer(answer, packet, {f"E{index}" for index in range(1, len(selected) + 1)})
+    _validate_answer(answer, selected)
     return ChatAnswer(answer, selected)

@@ -69,6 +69,25 @@ def test_generated_citations_must_resolve():
         ask_data("What is the rate?", evidence, FakeClient("The evidence reports the rate [E9]."), "test-model")
 
 
+def test_numeric_claim_must_match_the_cited_record():
+    evidence = (
+        Evidence("states.csv", "married_rate", "2024 | Texas | Marriage rate: 30.0%.", "texas marriage", 0.30, False),
+        Evidence("states.csv", "married_rate", "2024 | Georgia | Marriage rate: 40.0%.", "georgia marriage", 0.40, False),
+    )
+    client = FakeClient("Texas has a marriage rate of 40.0% [E1].")
+    with pytest.raises(UnsafeAnswerError, match="cited evidence"):
+        ask_data("Compare Texas and Georgia marriage rates", evidence, client, "test-model")
+
+
+def test_each_numeric_sentence_requires_its_own_citation():
+    evidence = (
+        Evidence("states.csv", "married_rate", "2024 | Texas | Marriage rate: 30.0%.", "texas marriage", 0.30, False),
+    )
+    client = FakeClient("The evidence is from 2024. The marriage rate is 30.0% [E1].")
+    with pytest.raises(UnsafeAnswerError, match="did not include"):
+        ask_data("What is the Texas marriage rate?", evidence, client, "test-model")
+
+
 def test_question_length_is_bounded():
     evidence = (
         Evidence("national.csv", "married_rate", "National marriage rate.", "national marriage rate", 0.32, False),
