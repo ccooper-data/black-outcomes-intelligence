@@ -1,0 +1,41 @@
+name: Build Phase 8 Research Report
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: {python-version: "3.12"}
+      - run: pip install -r requirements.txt
+      - name: Build deterministic report from published aggregates
+        run: |
+          python -m src.transform.build_research_report \
+            --inference data/published/inference.csv \
+            --manifest data/published/inference_manifest.json \
+            --output-dir /tmp/phase-8-report
+      - name: Rebuild and reconcile byte-for-byte
+        run: |
+          python -m src.transform.build_research_report \
+            --inference data/published/inference.csv \
+            --manifest data/published/inference_manifest.json \
+            --output-dir /tmp/phase-8-rebuild
+          for name in research_findings.md research_findings.html research_findings_appendix.csv research_findings_manifest.json; do
+            cmp "/tmp/phase-8-report/$name" "/tmp/phase-8-rebuild/$name"
+          done
+      - name: Retain review-only report artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: phase-8-research-report-${{ github.run_id }}
+          path: /tmp/phase-8-report/*
+          retention-days: 7
+          if-no-files-found: error
+      - name: Record non-publication result
+        run: echo "Phase 8 report reconciled and retained for review; no S3 objects or repository files were written."
