@@ -39,3 +39,10 @@ jobs:
           ! grep -R --exclude=ci.yml -E -q 'actions/setup-python@v[1-6]([^0-9]|$)' .github/workflows
           ! grep -R --exclude=ci.yml -E -q 'actions/upload-artifact@v[1-6]([^0-9]|$)' .github/workflows
           ! grep -R --exclude=ci.yml -E -q 'aws-actions/configure-aws-credentials@v[1-5]([^0-9]|$)' .github/workflows
+      - name: Verify Phase 5 challenger safeguards
+        run: |
+          grep -q 'python -m src.transform.reconcile_robustness' .github/workflows/publish-model-robustness.yml
+          grep -q 'default: false' .github/workflows/publish-model-robustness.yml
+          grep -q 'if:.*inputs.publish' .github/workflows/publish-model-robustness.yml
+          grep -q 'cmp "/tmp/published-robustness/$name"' .github/workflows/publish-model-robustness.yml
+          ! grep -R --exclude=ci.yml -q 'person_predictions.csv' .github src
