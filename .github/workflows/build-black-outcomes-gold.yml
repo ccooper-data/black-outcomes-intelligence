@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   gold:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       BUCKET: black-outcomes-intelligence-dev-4623dd8370ffd332f292468c61
