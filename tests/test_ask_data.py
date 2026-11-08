@@ -2,7 +2,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.ask_data import Evidence, UnsafeAnswerError, ask_data, build_evidence_store, retrieve_evidence
+from src.ask_data import (
+    Evidence, UnsafeAnswerError, _validate_answer, ask_data, build_evidence_store, retrieve_evidence,
+)
 
 
 class FakeResponses:
@@ -78,7 +80,7 @@ def test_generated_numbers_must_exist_in_evidence():
         Evidence("national.csv", "married_rate", "2024 | National | Marriage rate: 32.0%.", "2024 national marriage rate", 0.32, False),
     )
     with pytest.raises(UnsafeAnswerError, match="unsupported numeric"):
-        ask_data("What is the rate?", evidence, FakeClient("It is 99.0% [E1]."), "test-model")
+        _validate_answer("It is 99.0% [E1].", evidence)
 
 
 def test_equivalent_numeric_formatting_is_accepted_without_weakening_units():
@@ -88,7 +90,7 @@ def test_equivalent_numeric_formatting_is_accepted_without_weakening_units():
     result = ask_data("What is the rate?", evidence, FakeClient("In 2024, it was 32% [E1]."), "test-model")
     assert result.text == "In 2024, it was 32% [E1]."
     with pytest.raises(UnsafeAnswerError, match="unsupported numeric"):
-        ask_data("What is the rate?", evidence, FakeClient("In 2024, it was $32 [E1]."), "test-model")
+        _validate_answer("In 2024, it was $32 [E1].", evidence)
 
 
 def test_failed_draft_is_retried_once_with_the_same_evidence_packet():
@@ -106,12 +108,33 @@ def test_failed_draft_is_retried_once_with_the_same_evidence_packet():
     assert "33.0%" not in str(responses.calls[1]["input"])
 
 
+def test_two_failed_drafts_return_a_validated_verbatim_evidence_fallback():
+    evidence = (
+        Evidence(
+            "national.csv", "married_rate",
+            "2024 | National | All Black adults | All ages | Marriage rate: 32.0% (95% CI 31.7%–32.3%).",
+            "2024 national marriage rate", 0.32, False,
+        ),
+    )
+    responses = SequencedResponses(("It was 33.0% [E1].", "It was 34.0% [E1]."))
+    result = ask_data(
+        "What is the 2024 national marriage rate for all Black adults?",
+        evidence,
+        SimpleNamespace(responses=responses),
+        "test-model",
+    )
+    assert result.text.endswith("32.0% (95% CI 31.7%–32.3%) [E1].")
+    assert "33.0%" not in result.text
+    assert "34.0%" not in result.text
+    assert len(responses.calls) == 2
+
+
 def test_generated_citations_must_resolve():
     evidence = (
         Evidence("national.csv", "married_rate", "2024 | National | Marriage rate: 32.0%.", "2024 national marriage rate", 0.32, False),
     )
     with pytest.raises(UnsafeAnswerError, match="citations"):
-        ask_data("What is the rate?", evidence, FakeClient("The evidence reports the rate [E9]."), "test-model")
+        _validate_answer("The evidence reports the rate [E9].", evidence)
 
 
 def test_numeric_claim_must_match_the_cited_record():
@@ -121,7 +144,7 @@ def test_numeric_claim_must_match_the_cited_record():
     )
     client = FakeClient("Texas has a marriage rate of 40.0% [E1].")
     with pytest.raises(UnsafeAnswerError, match="cited evidence"):
-        ask_data("Compare Texas and Georgia marriage rates", evidence, client, "test-model")
+        _validate_answer(client.responses.answer, evidence)
 
 
 def test_each_numeric_sentence_requires_its_own_citation():
@@ -130,7 +153,7 @@ def test_each_numeric_sentence_requires_its_own_citation():
     )
     client = FakeClient("The evidence is from 2024. The marriage rate is 30.0% [E1].")
     with pytest.raises(UnsafeAnswerError, match="did not include"):
-        ask_data("What is the Texas marriage rate?", evidence, client, "test-model")
+        _validate_answer(client.responses.answer, evidence)
 
 
 def test_question_length_is_bounded():

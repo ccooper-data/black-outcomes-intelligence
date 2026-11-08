@@ -310,7 +310,9 @@ def ask_data(
             return ChatAnswer(answer, selected)
         except UnsafeAnswerError:
             if attempt == 1:
-                raise
+                fallback = f"Most relevant published record: {selected[0].text.rstrip('.')} [E1]."
+                _validate_answer(fallback, selected)
+                return ChatAnswer(fallback, selected)
             request_input = input_items + [{
                 "role": "user",
                 "content": (
