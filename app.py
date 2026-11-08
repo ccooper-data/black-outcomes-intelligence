@@ -94,7 +94,9 @@ def load_data():
         required_inference = {
             "women_estimate", "men_estimate", "difference_estimate", "difference_standard_error",
             "difference_ci95_lower", "difference_ci95_upper", "difference_p_value",
-            "difference_q_value", "difference_fdr_significant", "difference_is_suppressed",
+            "difference_log10_p_value", "difference_q_value", "difference_log10_q_value",
+            "difference_q_value_below_machine_precision", "difference_fdr_significant",
+            "difference_is_suppressed",
         }
         if not required_inference <= set(inference) or inference_manifest.get("causal_interpretation") is not False:
             raise ValueError("Published Phase 7 inference contract failed validation.")
@@ -378,8 +380,13 @@ else:
                 f"{format_value(inference_row['difference_ci95_upper'], inference_kind)}"
             )
             if bool(inference_row["difference_fdr_significant"]):
+                q_text = (
+                    f"q below floating-point precision; log10(q)={inference_row['difference_log10_q_value']:.3f}"
+                    if bool(inference_row["difference_q_value_below_machine_precision"])
+                    else f"q={inference_row['difference_q_value']:.3g}"
+                )
                 st.success(
-                    f"Statistically distinguishable after multiplicity control (q={inference_row['difference_q_value']:.3g}). "
+                    f"Statistically distinguishable after multiplicity control ({q_text}). "
                     "The observed difference is not evidence of causation or of individual outcomes."
                 )
             else:

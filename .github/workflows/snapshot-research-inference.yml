@@ -41,7 +41,10 @@ jobs:
           required = {
               "women_estimate", "men_estimate", "difference_estimate",
               "difference_standard_error", "difference_ci95_lower", "difference_ci95_upper",
-              "difference_p_value", "difference_q_value", "difference_fdr_significant",
+              "difference_p_value", "difference_log10_p_value",
+              "difference_p_value_below_machine_precision", "difference_q_value",
+              "difference_log10_q_value", "difference_q_value_below_machine_precision",
+              "difference_fdr_significant",
               "difference_is_suppressed", "difference_suppression_reason",
           }
           assert required <= set(frame)
