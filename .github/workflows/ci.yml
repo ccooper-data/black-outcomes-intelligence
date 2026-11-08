@@ -16,3 +16,4 @@ jobs:
           grep -q "python -m src.transform.reconcile" .github/workflows/publish-gold-analytics.yml
           grep -q -- "--source /tmp/source.zip" .github/workflows/publish-gold-analytics.yml
           grep -q -- "--silver /tmp/silver.parquet" .github/workflows/publish-gold-analytics.yml
+          grep -q 'cmp "/tmp/published/$name"' .github/workflows/publish-gold-analytics.yml

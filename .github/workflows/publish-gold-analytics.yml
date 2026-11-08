@@ -64,3 +64,10 @@ jobs:
           for name in national.csv states.csv manifest.json; do
             aws s3 cp "/tmp/published/$name" "s3://$BUCKET/published/year=${{ inputs.year }}/$name"
           done
+      - name: Verify published objects are byte-identical to reconciled candidates
+        run: |
+          set -euo pipefail
+          for name in national.csv states.csv manifest.json; do
+            aws s3 cp "s3://$BUCKET/published/year=${{ inputs.year }}/$name" "/tmp/verify-$name"
+            cmp "/tmp/published/$name" "/tmp/verify-$name"
+          done
