@@ -1,0 +1,56 @@
+name: Snapshot Phase 4 Model Insights
+
+on: workflow_dispatch
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    env:
+      BUCKET: black-outcomes-intelligence-dev-4623dd8370ffd332f292468c61
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::780976819607:role/black-outcomes-github-deploy
+          aws-region: us-east-2
+      - name: Copy aggregate model artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p data/published
+          for name in model_metrics.csv model_calibration.csv model_card.json; do
+            aws s3 cp "s3://$BUCKET/published/model_insights/years=2022-2024/$name" "data/published/$name"
+          done
+      - name: Verify aggregate-only suppression-safe contract
+        run: |
+          python - <<'PY'
+          import json
+          import pandas as pd
+          metrics = pd.read_csv('data/published/model_metrics.csv')
+          calibration = pd.read_csv('data/published/model_calibration.csv')
+          card = json.load(open('data/published/model_card.json'))
+          assert set(metrics.model) == {'weighted_prevalence_baseline', 'survey_weighted_logistic'}
+          assert set(metrics.evaluation_year) == {2024}
+          assert set(metrics.metric) == {'brier_score', 'log_loss'}
+          assert len(calibration) >= 2
+          assert card['person_level_predictions_published'] is False
+          for frame in (metrics, calibration):
+              for flag in [c for c in frame if c.endswith('_is_suppressed')]:
+                  prefix = flag.removesuffix('_is_suppressed')
+                  hidden = frame[flag].fillna(False).astype(bool)
+                  for field in ('estimate','standard_error','ci95_lower','ci95_upper','relative_standard_error'):
+                      column = f'{prefix}_{field}'
+                      if column in frame:
+                          assert frame.loc[hidden, column].isna().all()
+          PY
+      - name: Commit dashboard snapshot
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add data/published/model_metrics.csv data/published/model_calibration.csv data/published/model_card.json
+          git diff --cached --quiet && exit 0
+          git commit -m "data: snapshot Phase 4 aggregate model insights"
+          git push

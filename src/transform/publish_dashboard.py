@@ -26,11 +26,12 @@ def redact_suppressed(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def build_candidates(gold_dir: Path, output_dir: Path,
-                     names: tuple[str, ...] = ("national.csv", "states.csv", "intersectional.csv")) -> None:
+                     names: tuple[str, ...] = ("national.csv", "states.csv", "intersectional.csv"),
+                     metadata_name: str = "manifest.json") -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     for name in names:
         redact_suppressed(pd.read_csv(gold_dir / name)).to_csv(output_dir / name, index=False)
-    (output_dir / "manifest.json").write_bytes((gold_dir / "manifest.json").read_bytes())
+    (output_dir / metadata_name).write_bytes((gold_dir / metadata_name).read_bytes())
 
 
 def main() -> None:
@@ -38,11 +39,18 @@ def main() -> None:
     parser.add_argument("--gold-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--longitudinal", action="store_true")
+    parser.add_argument("--modeling", action="store_true")
     args = parser.parse_args()
-    names = ("trends.csv", "contrasts.csv") if args.longitudinal else (
-        "national.csv", "states.csv", "intersectional.csv"
-    )
-    build_candidates(args.gold_dir, args.output_dir, names)
+    if args.modeling:
+        names = ("model_metrics.csv", "model_calibration.csv")
+        metadata_name = "model_card.json"
+    elif args.longitudinal:
+        names = ("trends.csv", "contrasts.csv")
+        metadata_name = "manifest.json"
+    else:
+        names = ("national.csv", "states.csv", "intersectional.csv")
+        metadata_name = "manifest.json"
+    build_candidates(args.gold_dir, args.output_dir, names, metadata_name)
 
 
 if __name__ == "__main__":

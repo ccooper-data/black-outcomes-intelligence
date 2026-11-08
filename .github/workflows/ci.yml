@@ -12,7 +12,7 @@ jobs:
       - name: Verify no production point-estimate-only SQL remains
         run: '! grep -R --exclude=ci.yml "CREATE TABLE gold_black_outcomes" .github/workflows'
       - name: Prevent destructive Gold-prefix synchronization
-        run: '! grep -q "aws s3 sync" .github/workflows/build-black-outcomes-gold.yml'
+        run: '! grep -R --exclude=ci.yml -q "aws s3 sync" .github/workflows'
       - name: Verify publication reconciliation is enforced
         run: |
           grep -q "python -m src.transform.reconcile" .github/workflows/publish-gold-analytics.yml
@@ -23,3 +23,10 @@ jobs:
           grep -q 'if:.*inputs.publish' .github/workflows/publish-gold-analytics.yml
           grep -q "python -m src.transform.reconcile_longitudinal" .github/workflows/publish-gold-analytics.yml
           grep -q 'published/longitudinal/years=2022-2024' .github/workflows/publish-gold-analytics.yml
+      - name: Verify Phase 4 publication safeguards
+        run: |
+          grep -q "python -m src.transform.reconcile_models" .github/workflows/publish-model-insights.yml
+          grep -q 'default: false' .github/workflows/publish-model-insights.yml
+          grep -q 'if:.*inputs.publish' .github/workflows/publish-model-insights.yml
+          grep -q 'cmp "/tmp/published-model/$name"' .github/workflows/publish-model-insights.yml
+          ! grep -R --exclude=ci.yml -q 'person_predictions.csv' .github src
