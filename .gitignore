@@ -3,6 +3,7 @@ __pycache__/
 .pytest_cache/
 *.pyc
 .env
+.streamlit/secrets.toml
 .terraform/
 *.tfstate*
 data/raw/
