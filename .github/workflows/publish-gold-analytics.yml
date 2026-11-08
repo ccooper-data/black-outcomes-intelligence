@@ -43,16 +43,7 @@ jobs:
             aws s3 cp "s3://$BUCKET/gold/black_outcomes/year=${{ inputs.year }}/$name" "/tmp/gold/$name"
           done
       - name: Build candidate dashboard artifacts
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import pandas as pd
-          source = Path('/tmp/gold')
-          target = Path('/tmp/published')
-          for name in ('national.csv', 'states.csv', 'intersectional.csv'):
-              pd.read_csv(source / name).to_csv(target / name, index=False)
-          (target / 'manifest.json').write_bytes((source / 'manifest.json').read_bytes())
-          PY
+        run: python -m src.transform.publish_dashboard --gold-dir /tmp/gold --output-dir /tmp/published
       - name: Enforce full source-to-dashboard reconciliation
         run: |
           python -m src.transform.reconcile \

@@ -12,6 +12,7 @@ import pandas as pd
 
 from src.transform.acs_pums_silver import COLUMNS, transform_frame
 from src.transform.build_marts import build_gold, build_intersectional
+from src.transform.publish_dashboard import redact_suppressed
 
 
 def read_source(path: Path) -> pd.DataFrame:
@@ -97,11 +98,11 @@ def reconcile(source: pd.DataFrame, silver: pd.DataFrame, gold_national: pd.Data
             expected_intersectional, gold_intersectional, ["state", "sex", "age_band"],
             "Silver-to-Gold intersectional",
         )
-    _assert_frames_equal(gold_national, published_national, ["survey_year"], "Gold-to-published national")
-    _assert_frames_equal(gold_states, published_states, ["state"], "Gold-to-published states")
+    _assert_frames_equal(redact_suppressed(gold_national), published_national, ["survey_year"], "Gold-to-published national")
+    _assert_frames_equal(redact_suppressed(gold_states), published_states, ["state"], "Gold-to-published states")
     if gold_intersectional is not None and published_intersectional is not None:
         _assert_frames_equal(
-            gold_intersectional, published_intersectional, ["state", "sex", "age_band"],
+            redact_suppressed(gold_intersectional), published_intersectional, ["state", "sex", "age_band"],
             "Gold-to-published intersectional",
         )
     return {
@@ -117,11 +118,11 @@ def reconcile_publication(gold_national: pd.DataFrame, gold_states: pd.DataFrame
                           gold_intersectional: pd.DataFrame | None = None,
                           published_intersectional: pd.DataFrame | None = None) -> dict[str, object]:
     """Gate publication by comparing the dashboard artifacts with approved Gold."""
-    _assert_frames_equal(gold_national, published_national, ["survey_year"], "Gold-to-published national")
-    _assert_frames_equal(gold_states, published_states, ["state"], "Gold-to-published states")
+    _assert_frames_equal(redact_suppressed(gold_national), published_national, ["survey_year"], "Gold-to-published national")
+    _assert_frames_equal(redact_suppressed(gold_states), published_states, ["state"], "Gold-to-published states")
     if gold_intersectional is not None and published_intersectional is not None:
         _assert_frames_equal(
-            gold_intersectional, published_intersectional, ["state", "sex", "age_band"],
+            redact_suppressed(gold_intersectional), published_intersectional, ["state", "sex", "age_band"],
             "Gold-to-published intersectional",
         )
     report = {

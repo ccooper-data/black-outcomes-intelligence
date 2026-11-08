@@ -12,6 +12,6 @@ The employment numerator includes ACS `ESR` codes 1, 2, 4, and 5. Its denominato
 
 ## Statistical and publication rules
 
-All Phase 1 rules remain mandatory: ACS SDR standard errors, 95% confidence intervals, explicit unweighted n and weighted denominators, and suppression for n below 30, nonpositive denominators, or RSE above 30%/undefined. Suppressed cells remain auditable in Gold but render as “Suppressed” publicly. The dashboard never converts a suppressed result to zero.
+All Phase 1 rules remain mandatory: ACS SDR standard errors, 95% confidence intervals, explicit unweighted n and weighted denominators, and suppression for n below 30, nonpositive denominators, or RSE above 30%/undefined. Suppressed cells remain complete and auditable only in private Gold. At the publication boundary, their estimate, standard error, confidence limits, and RSE are blanked before S3/dashboard snapshot creation; flags, reasons, n, and denominators remain for transparency. The dashboard never converts a suppressed result to zero.
 
 The mart grain is `(survey_year, state, sex, age_band)`. A null state means national. Source→Silver→Gold→published reconciliation covers the new `SEX` field and `intersectional.csv` artifact.

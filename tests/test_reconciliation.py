@@ -8,6 +8,7 @@ from src.transform.build_marts import build_gold, build_intersectional
 from src.transform.reconcile import (
     read_source, reconcile, reconcile_publication, reconcile_source_to_silver_files,
 )
+from src.transform.publish_dashboard import redact_suppressed
 
 
 def source_frame():
@@ -29,7 +30,7 @@ def test_full_reconciliation_passes_and_detects_publication_drift():
     report = reconcile(
         source, silver, national, states, national.copy(), states.copy(),
         gold_intersectional=intersectional,
-        published_intersectional=intersectional.copy(),
+        published_intersectional=redact_suppressed(intersectional),
     )
     assert report["status"] == "passed"
     drifted = states.copy()
@@ -38,7 +39,7 @@ def test_full_reconciliation_passes_and_detects_publication_drift():
         reconcile(
             source, silver, national, states, national.copy(), drifted,
             gold_intersectional=intersectional,
-            published_intersectional=intersectional.copy(),
+            published_intersectional=redact_suppressed(intersectional),
         )
 
 
@@ -47,8 +48,9 @@ def test_full_reconciliation_detects_intersectional_drift():
     silver = transform_frame(source)
     national, states = build_gold(silver)
     intersectional = build_intersectional(silver)
-    drifted = intersectional.copy()
-    drifted.loc[0, "employment_rate_estimate"] += 0.01
+    drifted = redact_suppressed(intersectional)
+    unsuppressed = ~drifted["employment_rate_is_suppressed"].astype(bool)
+    drifted.loc[unsuppressed.idxmax(), "employment_rate_estimate"] += 0.01
     with pytest.raises(AssertionError, match="Gold-to-published intersectional"):
         reconcile(
             source, silver, national, states, national.copy(), states.copy(),

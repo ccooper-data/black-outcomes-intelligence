@@ -18,7 +18,7 @@ Every metric carries `unweighted_n` and `weighted_denominator`. A value is marke
 - weighted denominator is nonpositive;
 - relative standard error (`SE / abs(estimate)`) exceeds 30% or cannot be calculated.
 
-Suppressed point estimates remain in the private analytical artifact for auditability, but the dashboard renders “Suppressed.” These thresholds are a project publication policy, not a Census endorsement. See [docs/statistical_methodology.md](docs/statistical_methodology.md).
+Suppressed point estimates remain only in private Gold for auditability. Public S3 and repository snapshots blank the estimate, standard error, confidence limits, and RSE before the dashboard renders “Suppressed.” These thresholds are a project publication policy, not a Census endorsement. See [docs/statistical_methodology.md](docs/statistical_methodology.md).
 
 ## Reconciliation and testing
 

@@ -22,6 +22,8 @@ The Census [2020–2024 PUMS Accuracy documentation](https://www2.census.gov/pro
 
 Each metric includes its point estimate, standard error, 95% limits, relative standard error, unweighted sample count, weighted denominator, suppression flag, and machine-readable reason. The public view suppresses a metric if unweighted n is below 30, its denominator is nonpositive, or RSE exceeds 30%/is undefined. Rules are evaluated per metric because income and universe denominators can differ. Suppression never substitutes a zero and never fabricates an estimate.
 
+Complete suppressed statistics are retained in private Gold for auditability. The publication transform replaces their point estimate, standard error, confidence limits, and RSE with null values before writing public S3 objects or repository snapshots. Reconciliation derives this redacted projection independently and fails if a suppressed statistic leaks into a public candidate.
+
 ## Lineage and reproducibility
 
 Bronze validation requires the final and all 80 replicate weights. Silver preserves those columns as integers and records the replicate method in its manifest. Gold is built by the tested Python estimator rather than point-estimate-only Athena SQL. Reconciliation verifies source-to-Silver records, rebuilds Silver-to-Gold outputs, and checks Gold-to-published artifacts. The production publish job performs byte comparisons after copying; the deterministic integration test exercises the complete logical chain without external data or AWS cost.
