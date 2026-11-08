@@ -27,6 +27,8 @@ Performance is reported overall, by sex, and by age band. Every metric carries i
 
 `publish-model-insights.yml` defaults to `publish=false`. It independently downloads the three authoritative Bronze archives and Silver Parquet partitions, fingerprints source-to-Silver rows, rebuilds aggregate model outputs, creates suppression-safe candidates, and checks Silver-to-Gold and Gold-to-published equality. Only an explicit `publish=true` run writes model artifacts; each published object is then re-downloaded and byte-compared with the reconciled candidate.
 
+Every successful run retains the reconciled aggregate candidates, model card, and reconciliation report as a seven-day GitHub Actions review artifact. This makes a dry run numerically auditable without writing Gold or the published S3 prefix. The artifact contains no person-level records or predictions.
+
 `snapshot-model-insights.yml` validates the aggregate-only and suppression contracts before committing the three public artifacts used by Streamlit. Both workflows use the existing S3 bucket and GitHub-hosted runners. They provision no infrastructure and create no always-on AWS cost.
 
 ## Known limitations
