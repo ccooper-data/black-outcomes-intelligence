@@ -12,14 +12,17 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-import boto3
 import pandas as pd
 
 DEFAULT_YEAR = 2024
 DEFAULT_BUCKET = "black-outcomes-intelligence-dev-4623dd8370ffd332f292468c61"
 DEFAULT_URL_TEMPLATE = "https://www2.census.gov/programs-surveys/acs/data/pums/{year}/1-Year/csv_pus.zip"
 # The 2024 FTP person file uses STATE (not the API geography alias ST).
-REQUIRED_COLUMNS = {"SERIALNO", "SPORDER", "STATE", "PUMA", "AGEP", "RAC1P", "MAR", "SCHL", "PINCP", "ESR", "PWGTP"}
+PERSON_REPLICATE_WEIGHTS = tuple(f"PWGTP{i}" for i in range(1, 81))
+REQUIRED_COLUMNS = {
+    "SERIALNO", "SPORDER", "STATE", "PUMA", "AGEP", "RAC1P", "MAR",
+    "SCHL", "PINCP", "ESR", "PWGTP", *PERSON_REPLICATE_WEIGHTS,
+}
 
 
 def sha256_file(path: Path) -> str:
@@ -74,6 +77,8 @@ def validate_archive(archive: Path) -> dict[str, object]:
 
 
 def upload(year: int, bucket: str, archive: Path, validation: dict[str, object], source_url: str) -> dict[str, object]:
+    import boto3
+
     s3 = boto3.client("s3")
     prefix = f"bronze/acs_pums/year={year}/release=1-year"
     archive_key = f"{prefix}/csv_pus.zip"

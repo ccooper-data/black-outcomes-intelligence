@@ -37,6 +37,17 @@ jobs:
           aws s3 cp "s3://$BUCKET/published/year=${{ inputs.year }}/states.csv" data/published/states.csv
           test "$(tail -n +2 data/published/national.csv | wc -l)" -eq 1
           test "$(tail -n +2 data/published/states.csv | wc -l)" -eq 51
+      - name: Validate Phase 1 statistical contract
+        run: |
+          pip install pandas
+          python - <<'PY'
+          import pandas as pd
+          for p in ('data/published/national.csv', 'data/published/states.csv'):
+              d = pd.read_csv(p)
+              for metric in ('black_population', 'married_rate', 'bachelors_plus_rate', 'mean_personal_income'):
+                  required = {f'{metric}_{x}' for x in ('estimate','standard_error','ci95_lower','ci95_upper','unweighted_n','weighted_denominator','is_suppressed','suppression_reason')}
+                  assert required <= set(d), required - set(d)
+          PY
       - name: Commit dashboard snapshot
         run: |
           git config user.name "github-actions[bot]"
