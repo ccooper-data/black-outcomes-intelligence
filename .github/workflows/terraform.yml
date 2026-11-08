@@ -2,6 +2,12 @@ name: Terraform AWS
 
 on:
   workflow_dispatch:
+    inputs:
+      apply:
+        description: "Apply a freshly generated plan to AWS (main only)"
+        required: true
+        default: false
+        type: boolean
   push:
     branches: [main]
     paths:
@@ -11,6 +17,11 @@ on:
 permissions:
   id-token: write
   contents: read
+
+# Serialize all state operations; never cancel an in-flight plan or apply.
+concurrency:
+  group: terraform-aws-state
+  cancel-in-progress: false
 
 jobs:
   terraform:
@@ -30,7 +41,7 @@ jobs:
           aws-region: us-east-2
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
 
       - name: Terraform fmt
         run: terraform fmt -check
@@ -44,5 +55,8 @@ jobs:
       - name: Terraform plan
         run: terraform plan -input=false -out=tfplan
 
+      # Pushes to main only plan (drift visibility). Apply requires an explicit
+      # manual dispatch with apply=true, and always generates its own fresh plan above.
       - name: Terraform apply
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.apply && github.ref == 'refs/heads/main' }}
         run: terraform apply -input=false -auto-approve tfplan
