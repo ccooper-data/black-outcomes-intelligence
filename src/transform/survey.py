@@ -34,8 +34,8 @@ def _weights(frame: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
         raise ValueError(f"Missing ACS person weight columns: {missing}")
     main = frame["PWGTP"].to_numpy(dtype=float)
     reps = frame[list(PERSON_REPLICATE_WEIGHTS)].to_numpy(dtype=float)
-    if (main <= 0).any() or (reps < 0).any() or not np.isfinite(main).all() or not np.isfinite(reps).all():
-        raise ValueError("ACS person weights must be finite; PWGTP positive and replicate weights nonnegative")
+    if (main <= 0).any() or not np.isfinite(main).all() or not np.isfinite(reps).all():
+        raise ValueError("ACS person weights must be finite and PWGTP must be positive")
     return main, reps
 
 
@@ -79,7 +79,7 @@ def weighted_ratio(frame: pd.DataFrame, numerator, denominator=None,
     if main_den <= 0:
         return _result(float("nan"), np.full(80, np.nan), int(den.sum()), main_den, policy, (0, 1))
     rep_den = den @ reps
-    rep_estimates = np.divide(num @ reps, rep_den, out=np.full(80, np.nan), where=rep_den > 0)
+    rep_estimates = np.divide(num @ reps, rep_den, out=np.full(80, np.nan), where=rep_den != 0)
     return _result(float((num @ main) / main_den), rep_estimates, int(den.sum()), main_den, policy, (0, 1))
 
 
@@ -96,7 +96,7 @@ def weighted_mean(frame: pd.DataFrame, values: pd.Series, eligible=None,
     if main_den <= 0:
         return _result(float("nan"), np.full(80, np.nan), int(valid.sum()), main_den, policy)
     rep_den = den @ reps
-    rep_estimates = np.divide(clean @ reps, rep_den, out=np.full(80, np.nan), where=rep_den > 0)
+    rep_estimates = np.divide(clean @ reps, rep_den, out=np.full(80, np.nan), where=rep_den != 0)
     return _result(float((clean @ main) / main_den), rep_estimates, int(valid.sum()), main_den, policy)
 
 

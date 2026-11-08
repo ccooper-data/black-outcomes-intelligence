@@ -21,8 +21,8 @@ def test_transform_preserves_person_weight():
 
 
 def test_transform_preserves_all_person_replicate_weights():
-    out = transform_frame(_frame(PWGTP1=37, PWGTP80=44))
-    assert int(out.loc[0, "PWGTP1"]) == 37
+    out = transform_frame(_frame(PWGTP1=-37, PWGTP80=44))
+    assert int(out.loc[0, "PWGTP1"]) == -37
     assert int(out.loc[0, "PWGTP80"]) == 44
 
 

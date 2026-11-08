@@ -26,3 +26,9 @@ def test_small_sample_is_suppressed_with_reason():
     result = weighted_ratio(frame, [True, False])
     assert result["is_suppressed"] is True
     assert "unweighted_n_below_30" in result["suppression_reason"]
+
+
+def test_negative_replicate_weights_are_valid_acs_design_values():
+    frame = pd.DataFrame({"PWGTP": [100, 100], **{c: [-20, 220] for c in PERSON_REPLICATE_WEIGHTS}})
+    result = weighted_ratio(frame, [True, False])
+    assert math.isfinite(result["standard_error"])

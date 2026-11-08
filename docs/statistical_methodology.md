@@ -16,6 +16,8 @@ The standard error is the square root of that variance. A ratio or mean is indep
 
 Primary reference: the Census Bureau's [ACS PUMS Technical Documentation](https://www.census.gov/programs-surveys/acs/microdata/documentation.html) and [PUMS User Guide](https://www2.census.gov/programs-surveys/acs/tech_docs/pums/2021ACS_PUMS_User_Guide.pdf), which specifies 80 replicate estimates and the `4/80` SDR variance factor.
 
+The Census [2020–2024 PUMS Accuracy documentation](https://www2.census.gov/programs-surveys/acs/tech_docs/pums/accuracy/2020_2024AccuracyPUMS.pdf) notes that replicate weights may be positive, zero, or negative. Negative replicate weights are preserved and used only for variance estimation; the full-sample `PWGTP` remains strictly positive.
+
 ## Publication suppression
 
 Each metric includes its point estimate, standard error, 95% limits, relative standard error, unweighted sample count, weighted denominator, suppression flag, and machine-readable reason. The public view suppresses a metric if unweighted n is below 30, its denominator is nonpositive, or RSE exceeds 30%/is undefined. Rules are evaluated per metric because income and universe denominators can differ. Suppression never substitutes a zero and never fabricates an estimate.

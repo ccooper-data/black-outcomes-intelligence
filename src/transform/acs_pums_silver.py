@@ -26,17 +26,16 @@ def transform_frame(frame: pd.DataFrame) -> pd.DataFrame:
     for column in INTEGER_COLUMNS:
         out[column] = pd.to_numeric(out[column], errors="coerce").astype("Int64")
     weight_columns = ["PWGTP", *PERSON_REPLICATE_WEIGHTS]
-    if out[weight_columns].isna().any().any() or (out[weight_columns] < 0).any().any():
+    if out[weight_columns].isna().any().any():
         invalid = {
             column: {
                 "missing": int(out[column].isna().sum()),
-                "negative": int((out[column] < 0).fillna(False).sum()),
             }
             for column in weight_columns
-            if out[column].isna().any() or (out[column] < 0).fillna(False).any()
+            if out[column].isna().any()
         }
         raise ValueError(
-            "PWGTP and all 80 person replicate weights must be present and nonnegative; "
+            "PWGTP and all 80 person replicate weights must be present and finite; "
             f"invalid counts: {invalid}"
         )
     if (out["PWGTP"] <= 0).any():
