@@ -27,24 +27,32 @@ jobs:
       - name: Verify aggregate-only suppression-safe contract
         run: |
           python - <<'PY'
+          import csv
           import json
-          import pandas as pd
-          metrics = pd.read_csv('data/published/model_metrics.csv')
-          calibration = pd.read_csv('data/published/model_calibration.csv')
-          card = json.load(open('data/published/model_card.json'))
-          assert set(metrics.model) == {'weighted_prevalence_baseline', 'survey_weighted_logistic'}
-          assert set(metrics.evaluation_year) == {2024}
-          assert set(metrics.metric) == {'brier_score', 'log_loss'}
+
+          def read_rows(path):
+              with open(path, newline='') as handle:
+                  return list(csv.DictReader(handle))
+
+          metrics = read_rows('data/published/model_metrics.csv')
+          calibration = read_rows('data/published/model_calibration.csv')
+          with open('data/published/model_card.json') as handle:
+              card = json.load(handle)
+          assert {row['model'] for row in metrics} == {'weighted_prevalence_baseline', 'survey_weighted_logistic'}
+          assert {int(row['evaluation_year']) for row in metrics} == {2024}
+          assert {row['metric'] for row in metrics} == {'brier_score', 'log_loss'}
           assert len(calibration) >= 2
           assert card['person_level_predictions_published'] is False
-          for frame in (metrics, calibration):
-              for flag in [c for c in frame if c.endswith('_is_suppressed')]:
+          for rows in (metrics, calibration):
+              columns = set(rows[0])
+              for flag in [column for column in columns if column.endswith('_is_suppressed')]:
                   prefix = flag.removesuffix('_is_suppressed')
-                  hidden = frame[flag].fillna(False).astype(bool)
-                  for field in ('estimate','standard_error','ci95_lower','ci95_upper','relative_standard_error'):
-                      column = f'{prefix}_{field}'
-                      if column in frame:
-                          assert frame.loc[hidden, column].isna().all()
+                  for row in rows:
+                      if row[flag].strip().lower() == 'true':
+                          for field in ('estimate','standard_error','ci95_lower','ci95_upper','relative_standard_error'):
+                              column = f'{prefix}_{field}'
+                              if column in columns:
+                                  assert row[column].strip() == ''
           PY
       - name: Commit dashboard snapshot
         run: |
