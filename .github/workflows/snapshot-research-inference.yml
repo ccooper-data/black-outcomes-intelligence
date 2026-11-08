@@ -1,0 +1,61 @@
+name: Snapshot Phase 7 Research Inference
+
+on: workflow_dispatch
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      BUCKET: black-outcomes-intelligence-dev-4623dd8370ffd332f292468c61
+    steps:
+      - uses: actions/checkout@v7
+        with: {persist-credentials: true}
+      - uses: actions/setup-python@v7
+        with: {python-version: "3.12"}
+      - run: pip install pandas
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::780976819607:role/black-outcomes-github-deploy
+          aws-region: us-east-2
+      - name: Download published inference artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p data/published
+          for name in inference.csv inference_manifest.json; do
+            aws s3 cp "s3://$BUCKET/published/research_inference/year=2024/$name" "data/published/$name"
+          done
+      - name: Validate aggregate-only inference contract
+        run: |
+          python - <<'PY'
+          import json
+          import pandas as pd
+          frame = pd.read_csv("data/published/inference.csv")
+          assert len(frame) == 208
+          assert set(frame["survey_year"]) == {2024}
+          assert not frame.duplicated(["state", "metric"], keep=False).any()
+          required = {
+              "women_estimate", "men_estimate", "difference_estimate",
+              "difference_standard_error", "difference_ci95_lower", "difference_ci95_upper",
+              "difference_p_value", "difference_q_value", "difference_fdr_significant",
+              "difference_is_suppressed", "difference_suppression_reason",
+          }
+          assert required <= set(frame)
+          manifest = json.load(open("data/published/inference_manifest.json"))
+          assert manifest["causal_interpretation"] is False
+          PY
+      - name: Commit published snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/published/inference.csv data/published/inference_manifest.json
+          if git diff --cached --quiet; then
+            echo "Phase 7 inference snapshot already current."
+          else
+            git commit -m "data: snapshot Phase 7 research inference"
+            git push
+          fi

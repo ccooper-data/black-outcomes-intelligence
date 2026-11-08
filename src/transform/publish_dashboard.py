@@ -9,6 +9,7 @@ import pandas as pd
 PUBLIC_REDACT_FIELDS = (
     "estimate", "standard_error", "ci95_lower", "ci95_upper", "relative_standard_error",
 )
+PUBLIC_INFERENCE_REDACT_FIELDS = ("p_value", "q_value", "fdr_significant")
 
 
 def redact_suppressed(frame: pd.DataFrame) -> pd.DataFrame:
@@ -18,9 +19,13 @@ def redact_suppressed(frame: pd.DataFrame) -> pd.DataFrame:
     for flag_column in flag_columns:
         prefix = flag_column.removesuffix("_is_suppressed")
         suppressed = result[flag_column].fillna(False).astype(bool)
-        for field in PUBLIC_REDACT_FIELDS:
+        if not suppressed.any():
+            continue
+        for field in (*PUBLIC_REDACT_FIELDS, *PUBLIC_INFERENCE_REDACT_FIELDS):
             column = f"{prefix}_{field}"
             if column in result.columns:
+                if field == "fdr_significant":
+                    result[column] = result[column].astype(object)
                 result.loc[suppressed, column] = pd.NA
     return result
 
@@ -41,8 +46,12 @@ def main() -> None:
     parser.add_argument("--longitudinal", action="store_true")
     parser.add_argument("--modeling", action="store_true")
     parser.add_argument("--robustness", action="store_true")
+    parser.add_argument("--inference", action="store_true")
     args = parser.parse_args()
-    if args.robustness:
+    if args.inference:
+        names = ("inference.csv",)
+        metadata_name = "inference_manifest.json"
+    elif args.robustness:
         names = (
             "robustness_metrics.csv", "robustness_comparisons.csv",
             "robustness_calibration.csv", "robustness_features.csv",
