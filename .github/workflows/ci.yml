@@ -12,7 +12,7 @@ jobs:
       - name: Verify no production point-estimate-only SQL remains
         run: '! grep -R --exclude=ci.yml "CREATE TABLE gold_black_outcomes" .github/workflows'
       - name: Prevent destructive Gold-prefix synchronization
-        run: '! grep -R -E --exclude=ci.yml "aws s3 sync .*gold/black_outcomes.*--delete" .github/workflows'
+        run: '! grep -q "aws s3 sync" .github/workflows/build-black-outcomes-gold.yml'
       - name: Verify publication reconciliation is enforced
         run: |
           grep -q "python -m src.transform.reconcile" .github/workflows/publish-gold-analytics.yml
