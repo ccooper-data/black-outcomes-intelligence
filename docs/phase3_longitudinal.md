@@ -18,6 +18,6 @@ Annual estimates and their own confidence intervals are valid under each release
 
 ## Quality and lineage gates
 
-The longitudinal builder requires exactly 2022, 2023, and 2024 and fails closed on missing design columns or incompatible required-field dtypes. The publish gate independently downloads all three Bronze ZIPs, all three Silver Parquet partitions, and longitudinal Gold; fingerprints source-to-Silver rows for every year; rebuilds Gold; derives the public redacted projection; and compares the result with the publish candidate. An optional publish then re-downloads every S3 object and byte-compares it with the reconciled candidate.
+The longitudinal builder requires exactly 2022, 2023, and 2024 and fails closed on missing design columns or incompatible required-field dtypes. The official 2022 CSV geography field `ST` is explicitly canonicalized to the 2023–2024 `STATE` name at the Silver boundary; values are not remapped. The publish gate independently downloads all three Bronze ZIPs, all three Silver Parquet partitions, and longitudinal Gold; fingerprints source-to-Silver rows for every year; rebuilds Gold; derives the public redacted projection; and compares the result with the publish candidate. An optional publish then re-downloads every S3 object and byte-compares it with the reconciled candidate.
 
 All workflows are manual. They reuse the existing S3 bucket and GitHub-hosted runners and create no new infrastructure or always-on AWS service.

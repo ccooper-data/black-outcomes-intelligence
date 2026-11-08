@@ -2,7 +2,7 @@ import pandas as pd
 import pytest
 
 from src.ingest.acs_pums import PERSON_REPLICATE_WEIGHTS
-from src.transform.acs_pums_silver import COLUMNS, transform_frame
+from src.transform.acs_pums_silver import COLUMNS, source_columns, transform_frame
 
 
 def _frame(**overrides):
@@ -34,3 +34,11 @@ def test_transform_rejects_nonpositive_weight():
 def test_transform_rejects_missing_required_column():
     with pytest.raises(ValueError, match="STATE"):
         transform_frame(_frame().drop(columns=["STATE"]))
+
+
+def test_legacy_st_is_canonicalized_to_state():
+    legacy = _frame().rename(columns={"STATE": "ST"})
+    out = transform_frame(legacy)
+    assert list(out.columns) == COLUMNS
+    assert int(out.loc[0, "STATE"]) == 1
+    assert "ST" in source_columns(legacy.columns)

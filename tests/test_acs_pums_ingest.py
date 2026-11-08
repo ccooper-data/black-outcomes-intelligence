@@ -16,8 +16,9 @@ def _write_zip(path: Path, columns: list[str], rows: list[dict]) -> None:
 
 def test_validate_archive_accepts_required_schema(tmp_path: Path) -> None:
     archive = tmp_path / "pums.zip"
-    row = {column: 1 for column in REQUIRED_COLUMNS}
-    _write_zip(archive, sorted(REQUIRED_COLUMNS), [row])
+    columns = sorted(REQUIRED_COLUMNS | {"STATE"})
+    row = {column: 1 for column in columns}
+    _write_zip(archive, columns, [row])
 
     result = validate_archive(archive)
 
@@ -25,9 +26,16 @@ def test_validate_archive_accepts_required_schema(tmp_path: Path) -> None:
     assert result["required_columns"] == sorted(REQUIRED_COLUMNS)
 
 
+def test_validate_archive_accepts_legacy_st_geography(tmp_path: Path) -> None:
+    archive = tmp_path / "pums.zip"
+    columns = sorted(REQUIRED_COLUMNS | {"ST"})
+    _write_zip(archive, columns, [{column: 1 for column in columns}])
+    assert validate_archive(archive)["total_rows"] == 1
+
+
 def test_validate_archive_rejects_missing_weight(tmp_path: Path) -> None:
     archive = tmp_path / "pums.zip"
-    columns = sorted(REQUIRED_COLUMNS - {"PWGTP"})
+    columns = sorted((REQUIRED_COLUMNS - {"PWGTP"}) | {"STATE"})
     row = {column: 1 for column in columns}
     _write_zip(archive, columns, [row])
 
