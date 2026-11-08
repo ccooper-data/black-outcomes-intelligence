@@ -5,7 +5,11 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from src.transform.build_research_report import build_report, validate_inference
+from src.transform.build_research_report import (
+    _csv_value,
+    build_report,
+    validate_inference,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -57,6 +61,13 @@ def test_report_manifest_hashes_match_artifacts(tmp_path):
     for name, expected in manifest["artifacts"].items():
         actual = hashlib.sha256((tmp_path / name).read_bytes()).hexdigest()
         assert actual == expected
+
+
+def test_csv_scalar_formatting_is_explicit_and_stable():
+    assert _csv_value(5.987260397910911e-55) == "5.9872603979109107e-55"
+    assert _csv_value(4.0220083010041755e-18) == "4.0220083010041755e-18"
+    assert _csv_value(float("nan")) == ""
+    assert _csv_value(True) == "True"
 
 
 def test_validation_rejects_wrong_grain():
