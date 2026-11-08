@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import zipfile
 from pathlib import Path
@@ -28,6 +29,43 @@ def read_source(path: Path) -> pd.DataFrame:
             with bundle.open(name) as stream:
                 frames.append(pd.read_csv(stream, usecols=COLUMNS, low_memory=False))
     return pd.concat(frames, ignore_index=True)
+
+
+def _update_fingerprint(digest, frame: pd.DataFrame) -> int:
+    normalized = transform_frame(frame)[COLUMNS]
+    row_hashes = pd.util.hash_pandas_object(normalized, index=False).to_numpy()
+    digest.update(row_hashes.tobytes())
+    return len(normalized)
+
+
+def reconcile_source_to_silver_files(source_zip: Path, silver_parquet: Path) -> dict[str, object]:
+    """Compare every normalized row without holding Bronze and Silver in memory together."""
+    import pyarrow.parquet as pq
+
+    source_digest = hashlib.sha256()
+    source_rows = 0
+    with zipfile.ZipFile(source_zip) as bundle:
+        names = [name for name in bundle.namelist() if name.lower().endswith(".csv")]
+        if not names:
+            raise ValueError("Census PUMS ZIP contains no CSV files")
+        for name in names:
+            with bundle.open(name) as stream:
+                for chunk in pd.read_csv(stream, usecols=COLUMNS, chunksize=50_000, low_memory=False):
+                    source_rows += _update_fingerprint(source_digest, chunk)
+
+    silver_digest = hashlib.sha256()
+    silver_rows = 0
+    parquet = pq.ParquetFile(silver_parquet)
+    for batch in parquet.iter_batches(batch_size=50_000, columns=COLUMNS):
+        frame = batch.to_pandas()
+        silver_rows += _update_fingerprint(silver_digest, frame)
+
+    if source_rows != silver_rows or source_digest.digest() != silver_digest.digest():
+        raise AssertionError(
+            "source-to-Silver row fingerprint mismatch: "
+            f"source_rows={source_rows}, silver_rows={silver_rows}"
+        )
+    return {"source_rows": source_rows, "silver_rows": silver_rows, "sha256": source_digest.hexdigest()}
 
 
 def _assert_frames_equal(expected: pd.DataFrame, actual: pd.DataFrame, keys: list[str], label: str) -> None:
@@ -72,6 +110,29 @@ def reconcile_publication(gold_national: pd.DataFrame, gold_states: pd.DataFrame
     }
 
 
+def reconcile_files(source: Path, silver_path: Path, gold_national: pd.DataFrame,
+                    gold_states: pd.DataFrame, published_national: pd.DataFrame,
+                    published_states: pd.DataFrame, year: int = 2024) -> dict[str, object]:
+    if source.suffix.lower() != ".zip":
+        return reconcile(
+            read_source(source), pd.read_parquet(silver_path), gold_national, gold_states,
+            published_national, published_states, year,
+        )
+    lineage = reconcile_source_to_silver_files(source, silver_path)
+    silver = pd.read_parquet(silver_path)
+    expected_national, expected_states = build_gold(silver, year)
+    _assert_frames_equal(expected_national, gold_national, ["survey_year"], "Silver-to-Gold national")
+    _assert_frames_equal(expected_states, gold_states, ["state"], "Silver-to-Gold states")
+    publication = reconcile_publication(
+        gold_national, gold_states, published_national, published_states, year,
+    )
+    return {
+        "status": "passed", "year": year, **lineage,
+        "national_rows": publication["national_rows"], "state_rows": publication["state_rows"],
+        "checks": ["source-to-Silver", "Silver-to-Gold", "Gold-to-published"],
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=Path)
@@ -93,8 +154,8 @@ def main() -> None:
     else:
         if args.source is None or args.silver is None:
             parser.error("--source and --silver are required unless --publication-only is set")
-        report = reconcile(
-            read_source(args.source), pd.read_parquet(args.silver),
+        report = reconcile_files(
+            args.source, args.silver,
             gold_national, gold_states, published_national, published_states, args.year,
         )
     payload = json.dumps(report, indent=2) + "\n"

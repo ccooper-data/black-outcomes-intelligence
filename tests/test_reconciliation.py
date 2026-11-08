@@ -5,7 +5,9 @@ import zipfile
 from src.ingest.acs_pums import PERSON_REPLICATE_WEIGHTS
 from src.transform.acs_pums_silver import transform_frame
 from src.transform.build_marts import build_gold
-from src.transform.reconcile import read_source, reconcile, reconcile_publication
+from src.transform.reconcile import (
+    read_source, reconcile, reconcile_publication, reconcile_source_to_silver_files,
+)
 
 
 def source_frame():
@@ -52,3 +54,22 @@ def test_authoritative_bronze_zip_is_read_for_reconciliation(tmp_path):
     observed = read_source(archive)
     assert len(observed) == len(source)
     assert set(observed.columns) == set(source.columns)
+
+
+def test_streaming_source_to_silver_fingerprint_detects_drift(tmp_path):
+    source = source_frame()
+    silver = transform_frame(source)
+    csv_path = tmp_path / "persons.csv"
+    archive = tmp_path / "source.zip"
+    parquet = tmp_path / "silver.parquet"
+    source.to_csv(csv_path, index=False)
+    with zipfile.ZipFile(archive, "w") as bundle:
+        bundle.write(csv_path, arcname="psam_pusa.csv")
+    silver.to_parquet(parquet, index=False)
+    result = reconcile_source_to_silver_files(archive, parquet)
+    assert result["source_rows"] == 60
+    drifted = silver.copy()
+    drifted.loc[0, "PWGTP1"] += 1
+    drifted.to_parquet(parquet, index=False)
+    with pytest.raises(AssertionError, match="fingerprint mismatch"):
+        reconcile_source_to_silver_files(archive, parquet)
