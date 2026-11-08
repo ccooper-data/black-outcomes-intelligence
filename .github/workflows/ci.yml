@@ -62,7 +62,7 @@ jobs:
           grep -q 'women.replicates - men.replicates' src/transform/build_inference.py
           grep -q 'reconcile_inference' .github/workflows/publish-research-inference.yml
           grep -q 'if:.*inputs.publish' .github/workflows/publish-research-inference.yml
-          if grep -Eq 'aws s3 sync.*research_inference.*--delete|aws s3 sync.*--delete.*research_inference' .github/workflows/*.yml; then
+          if grep -R --exclude=ci.yml -Eq 'aws s3 sync.*research_inference.*--delete|aws s3 sync.*--delete.*research_inference' .github/workflows; then
             echo 'Destructive Phase 7 prefix synchronization is forbidden.' >&2
             exit 1
           fi
