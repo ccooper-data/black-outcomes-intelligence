@@ -4,8 +4,8 @@ jobs:
   test:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with: {python-version: '3.12'}
       - run: pip install -r requirements.txt
       - run: pytest -q
@@ -29,7 +29,13 @@ jobs:
           grep -q 'default: false' .github/workflows/publish-model-insights.yml
           grep -q 'if:.*inputs.publish' .github/workflows/publish-model-insights.yml
           grep -q 'cmp "/tmp/published-model/$name"' .github/workflows/publish-model-insights.yml
-          grep -q 'actions/upload-artifact@v4' .github/workflows/publish-model-insights.yml
+          grep -q 'actions/upload-artifact@v7' .github/workflows/publish-model-insights.yml
           grep -q '/tmp/published-model/model_metrics.csv' .github/workflows/publish-model-insights.yml
           ! grep -q 'import pandas' .github/workflows/snapshot-model-insights.yml
           ! grep -R --exclude=ci.yml -q 'person_predictions.csv' .github src
+      - name: Require verified Node.js 24 action majors
+        run: |
+          ! grep -R --exclude=ci.yml -E -q 'actions/checkout@v[1-6]([^0-9]|$)' .github/workflows
+          ! grep -R --exclude=ci.yml -E -q 'actions/setup-python@v[1-6]([^0-9]|$)' .github/workflows
+          ! grep -R --exclude=ci.yml -E -q 'actions/upload-artifact@v[1-6]([^0-9]|$)' .github/workflows
+          ! grep -R --exclude=ci.yml -E -q 'aws-actions/configure-aws-credentials@v[1-5]([^0-9]|$)' .github/workflows

@@ -25,11 +25,11 @@ jobs:
     env:
       BUCKET: black-outcomes-intelligence-dev-4623dd8370ffd332f292468c61
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with: {python-version: "3.12"}
       - run: pip install -r requirements.txt
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::780976819607:role/black-outcomes-github-deploy
           aws-region: us-east-2
