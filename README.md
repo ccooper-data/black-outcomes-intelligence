@@ -56,4 +56,8 @@ Phase 7 adds age-adjusted Black-women-minus-Black-men comparisons for marriage, 
 
 Phase 8 generates deterministic Markdown, HTML, a complete aggregate appendix, and a hash manifest from the validated Phase 7 public snapshot. It reports national results, transparent state summary counts, uncertainty, multiplicity control, suppression, provenance, and limitations without generative text or microdata access. The manual workflow rebuilds every artifact twice and compares it byte-for-byte. Publication defaults off; an explicitly authorized release commits the exact reviewed bytes to a versioned repository snapshot, which the dashboard hash-validates before offering downloads. See [docs/phase8_research_report.md](docs/phase8_research_report.md).
 
+## Phase 9A: external-review readiness
+
+Phase 9A creates a deterministic, hash-manifested package for a qualified external statistician or survey-methodology reviewer. Independent recalculations cover release grain, age-standard weights, suppression/redaction, confidence intervals, and multiplicity control. Automated success means only that the package is ready for review: the project must not claim independent validation until a qualified reviewer completes and documents the review and a separate repository change is approved. See [docs/phase9a_external_review.md](docs/phase9a_external_review.md).
+
 The low-cost public deployment path uses Streamlit Community Cloud with `main` and `app.py`. Deployment, project spending controls, secret entry, smoke testing, and final activation are separate gates. See [docs/phase6_community_cloud.md](docs/phase6_community_cloud.md).
