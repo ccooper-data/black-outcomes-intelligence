@@ -72,4 +72,8 @@ jobs:
           grep -q 'build_research_report' .github/workflows/build-research-report.yml
           grep -q 'cmp "/tmp/phase-8-report/$name"' .github/workflows/build-research-report.yml
           grep -q 'actions/upload-artifact@v7' .github/workflows/build-research-report.yml
-          ! grep -q 'configure-aws-credentials\|aws s3\|git push\|OPENAI_API_KEY' .github/workflows/build-research-report.yml
+          grep -q 'default: false' .github/workflows/build-research-report.yml
+          grep -q 'if:.*inputs.publish' .github/workflows/build-research-report.yml
+          grep -q 'git show "HEAD:$target/$name" | cmp' .github/workflows/build-research-report.yml
+          grep -q 'data/published/research_report/2024' .github/workflows/build-research-report.yml
+          ! grep -q 'configure-aws-credentials\|aws s3\|OPENAI_API_KEY' .github/workflows/build-research-report.yml

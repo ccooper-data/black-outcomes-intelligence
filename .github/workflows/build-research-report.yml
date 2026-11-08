@@ -2,9 +2,15 @@ name: Build Phase 8 Research Report
 
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: "Commit the exact reconciled report bytes to the public repository snapshot"
+        required: true
+        default: false
+        type: boolean
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   report:
@@ -37,5 +43,28 @@ jobs:
           path: /tmp/phase-8-report/*
           retention-days: 7
           if-no-files-found: error
+      - name: Publish exact reviewed bytes to the repository snapshot
+        if: ${{ inputs.publish }}
+        run: |
+          set -euo pipefail
+          target="data/published/research_report/2024"
+          mkdir -p "$target"
+          for name in research_findings.md research_findings.html research_findings_appendix.csv research_findings_manifest.json; do
+            cp "/tmp/phase-8-report/$name" "$target/$name"
+            cmp "/tmp/phase-8-report/$name" "$target/$name"
+          done
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$target"
+          if git diff --cached --quiet; then
+            echo "Phase 8 public report snapshot is already current."
+          else
+            git commit -m "data: publish Phase 8 research report"
+            for name in research_findings.md research_findings.html research_findings_appendix.csv research_findings_manifest.json; do
+              git show "HEAD:$target/$name" | cmp "/tmp/phase-8-report/$name" -
+            done
+            git push
+          fi
       - name: Record non-publication result
+        if: ${{ !inputs.publish }}
         run: echo "Phase 8 report reconciled and retained for review; no S3 objects or repository files were written."
