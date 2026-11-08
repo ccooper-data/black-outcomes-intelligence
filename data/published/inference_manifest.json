@@ -1,0 +1,35 @@
+{
+  "phase": 7,
+  "year": 2024,
+  "population": "Black-alone adults age 18+ (RAC1P = 2)",
+  "comparison": "Black women minus Black men",
+  "metrics": [
+    "married_rate",
+    "bachelors_plus_rate",
+    "employment_rate",
+    "mean_personal_income"
+  ],
+  "age_bands": [
+    "18\u201324",
+    "25\u201334",
+    "35\u201344",
+    "45\u201354",
+    "55\u201364",
+    "65+"
+  ],
+  "age_standard": "2024 national Black-adult age distribution",
+  "age_standard_weights": {
+    "18\u201324": 0.1302393625078639,
+    "25\u201334": 0.19480617925435353,
+    "35\u201344": 0.18338835147503846,
+    "45\u201354": 0.1569071683259785,
+    "55\u201364": 0.1508001165686578,
+    "65+": 0.1838588218681078
+  },
+  "variance": "80 ACS person replicate weights; SDR factor 4/80",
+  "testing": "two-sided normal test from the direct replicate-weight contrast standard error",
+  "extreme_probability_reporting": "p and q values below positive IEEE-754 float precision are stored at the smallest positive float, flagged, and accompanied by their finite log10 values",
+  "multiplicity": "Benjamini-Hochberg FDR within each metric across 51 state comparisons; national q=p",
+  "causal_interpretation": false,
+  "rows": 208
+}
