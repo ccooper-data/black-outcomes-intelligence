@@ -11,6 +11,8 @@ jobs:
       - run: pytest -q
       - name: Verify no production point-estimate-only SQL remains
         run: '! grep -R --exclude=ci.yml "CREATE TABLE gold_black_outcomes" .github/workflows'
+      - name: Prevent destructive Gold-prefix synchronization
+        run: '! grep -q "aws s3 sync" .github/workflows/build-black-outcomes-gold.yml'
       - name: Verify publication reconciliation is enforced
         run: |
           grep -q "python -m src.transform.reconcile" .github/workflows/publish-gold-analytics.yml
@@ -19,3 +21,5 @@ jobs:
           grep -q 'cmp "/tmp/published/$name"' .github/workflows/publish-gold-analytics.yml
           grep -q 'default: false' .github/workflows/publish-gold-analytics.yml
           grep -q 'if:.*inputs.publish' .github/workflows/publish-gold-analytics.yml
+          grep -q "python -m src.transform.reconcile_longitudinal" .github/workflows/publish-gold-analytics.yml
+          grep -q 'published/longitudinal/years=2022-2024' .github/workflows/publish-gold-analytics.yml

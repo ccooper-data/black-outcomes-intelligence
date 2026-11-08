@@ -19,6 +19,16 @@ class SuppressionPolicy:
     max_relative_standard_error: float = 0.30
 
 
+@dataclass(frozen=True)
+class ReplicateEstimate:
+    """Point estimate plus the 80 ACS replicate estimates used for variance."""
+
+    estimate: float
+    replicates: np.ndarray
+    unweighted_n: int
+    weighted_denominator: float
+
+
 def replicate_standard_error(estimate: float, replicate_estimates: np.ndarray) -> float:
     """ACS SDR standard error: sqrt((4/80) * sum((theta_r-theta)^2))."""
     values = np.asarray(replicate_estimates, dtype=float)
@@ -61,15 +71,24 @@ def _result(estimate: float, replicate_estimates: np.ndarray, n: int, denominato
     }
 
 
-def weighted_total(frame: pd.DataFrame, selector=None,
-                   policy: SuppressionPolicy = SuppressionPolicy()) -> dict[str, object]:
+def result_from_replicates(value: ReplicateEstimate,
+                           policy: SuppressionPolicy = SuppressionPolicy(),
+                           bounds: tuple[float, float] | None = None) -> dict[str, object]:
+    return _result(
+        value.estimate, value.replicates, value.unweighted_n,
+        value.weighted_denominator, policy, bounds,
+    )
+
+
+def estimate_total(frame: pd.DataFrame, selector=None) -> ReplicateEstimate:
     main, reps = _weights(frame)
     selected = np.ones(len(frame), dtype=float) if selector is None else np.asarray(selector, dtype=bool).astype(float)
-    return _result(float(selected @ main), selected @ reps, int(selected.sum()), float(main.sum()), policy, (0, float("inf")))
+    return ReplicateEstimate(
+        float(selected @ main), selected @ reps, int(selected.sum()), float(main.sum())
+    )
 
 
-def weighted_ratio(frame: pd.DataFrame, numerator, denominator=None,
-                   policy: SuppressionPolicy = SuppressionPolicy()) -> dict[str, object]:
+def estimate_ratio(frame: pd.DataFrame, numerator, denominator=None) -> ReplicateEstimate:
     main, reps = _weights(frame)
     num = np.asarray(numerator, dtype=bool).astype(float)
     den = np.ones(len(frame), dtype=float) if denominator is None else np.asarray(denominator, dtype=bool).astype(float)
@@ -77,14 +96,13 @@ def weighted_ratio(frame: pd.DataFrame, numerator, denominator=None,
         raise ValueError("Ratio numerator must be a subset of its denominator")
     main_den = float(den @ main)
     if main_den <= 0:
-        return _result(float("nan"), np.full(80, np.nan), int(den.sum()), main_den, policy, (0, 1))
+        return ReplicateEstimate(float("nan"), np.full(80, np.nan), int(den.sum()), main_den)
     rep_den = den @ reps
     rep_estimates = np.divide(num @ reps, rep_den, out=np.full(80, np.nan), where=rep_den != 0)
-    return _result(float((num @ main) / main_den), rep_estimates, int(den.sum()), main_den, policy, (0, 1))
+    return ReplicateEstimate(float((num @ main) / main_den), rep_estimates, int(den.sum()), main_den)
 
 
-def weighted_mean(frame: pd.DataFrame, values: pd.Series, eligible=None,
-                  policy: SuppressionPolicy = SuppressionPolicy()) -> dict[str, object]:
+def estimate_mean(frame: pd.DataFrame, values: pd.Series, eligible=None) -> ReplicateEstimate:
     main, reps = _weights(frame)
     x = pd.to_numeric(values, errors="coerce").to_numpy(dtype=float)
     valid = np.isfinite(x)
@@ -94,10 +112,25 @@ def weighted_mean(frame: pd.DataFrame, values: pd.Series, eligible=None,
     clean = np.where(valid, x, 0.0)
     main_den = float(den @ main)
     if main_den <= 0:
-        return _result(float("nan"), np.full(80, np.nan), int(valid.sum()), main_den, policy)
+        return ReplicateEstimate(float("nan"), np.full(80, np.nan), int(valid.sum()), main_den)
     rep_den = den @ reps
     rep_estimates = np.divide(clean @ reps, rep_den, out=np.full(80, np.nan), where=rep_den != 0)
-    return _result(float((clean @ main) / main_den), rep_estimates, int(valid.sum()), main_den, policy)
+    return ReplicateEstimate(float((clean @ main) / main_den), rep_estimates, int(valid.sum()), main_den)
+
+
+def weighted_total(frame: pd.DataFrame, selector=None,
+                   policy: SuppressionPolicy = SuppressionPolicy()) -> dict[str, object]:
+    return result_from_replicates(estimate_total(frame, selector), policy, (0, float("inf")))
+
+
+def weighted_ratio(frame: pd.DataFrame, numerator, denominator=None,
+                   policy: SuppressionPolicy = SuppressionPolicy()) -> dict[str, object]:
+    return result_from_replicates(estimate_ratio(frame, numerator, denominator), policy, (0, 1))
+
+
+def weighted_mean(frame: pd.DataFrame, values: pd.Series, eligible=None,
+                  policy: SuppressionPolicy = SuppressionPolicy()) -> dict[str, object]:
+    return result_from_replicates(estimate_mean(frame, values, eligible), policy)
 
 
 def flatten_metric(name: str, result: dict[str, object]) -> dict[str, object]:

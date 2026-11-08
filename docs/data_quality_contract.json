@@ -1,5 +1,5 @@
 {
-  "dataset": "acs2024_black_adults_curated",
+  "dataset": "acs2022_2024_black_adults_curated",
   "grain": "one ACS PUMS person record, Black alone (RAC1P=2), age 18+",
   "weight": "PWGTP",
   "replicate_weights": "PWGTP1-PWGTP80",
@@ -10,7 +10,13 @@
     "confidence_level": 0.95,
     "suppressed_values_are_not_zero": true
   },
-  "checks": {
+  "phase3": {
+    "required_years": [2022, 2023, 2024],
+    "schema_drift_policy": "fail on missing required fields or incompatible required-field dtypes",
+    "contrast": "Black women minus Black men, computed from paired replicate estimates within year",
+    "cross_year_significance_tested": false
+  },
+  "checks_2024": {
     "rows": 240035,
     "weighted_population": 31555652,
     "race_rule": "RAC1P == 2",

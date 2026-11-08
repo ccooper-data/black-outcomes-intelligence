@@ -6,5 +6,7 @@
   "dim_education": ["education_key", "education_band", "college_plus", "graduate_degree"],
   "dim_geography": ["geography_key", "state_fips", "puma"],
   "dim_income_band": ["income_band_key", "income_band", "lower_bound", "upper_bound"],
-  "gold_intersectional": ["survey_year", "state", "sex", "age_band", "estimate", "standard_error", "ci95_lower", "ci95_upper", "unweighted_n", "weighted_denominator", "is_suppressed", "suppression_reason"]
+  "gold_intersectional": ["survey_year", "state", "sex", "age_band", "estimate", "standard_error", "ci95_lower", "ci95_upper", "unweighted_n", "weighted_denominator", "is_suppressed", "suppression_reason"],
+  "gold_longitudinal_trends": ["survey_year", "state", "sex", "age_band", "estimate", "standard_error", "ci95_lower", "ci95_upper", "unweighted_n", "weighted_denominator", "is_suppressed", "suppression_reason"],
+  "gold_direct_contrasts": ["survey_year", "state", "age_band", "women_minus_men_estimate", "standard_error", "ci95_lower", "ci95_upper", "women_unweighted_n", "men_unweighted_n", "women_weighted_denominator", "men_weighted_denominator", "is_suppressed", "suppression_reason"]
 }

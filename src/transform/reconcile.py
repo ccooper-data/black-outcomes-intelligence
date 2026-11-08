@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from src.transform.acs_pums_silver import COLUMNS, transform_frame
+from src.transform.acs_pums_silver import COLUMNS, source_columns, transform_frame
 from src.transform.build_marts import build_gold, build_intersectional
 from src.transform.publish_dashboard import redact_suppressed
 
@@ -28,7 +28,9 @@ def read_source(path: Path) -> pd.DataFrame:
             raise ValueError("Census PUMS ZIP contains no CSV files")
         for name in names:
             with bundle.open(name) as stream:
-                frames.append(pd.read_csv(stream, usecols=COLUMNS, low_memory=False))
+                header = pd.read_csv(stream, nrows=0).columns
+            with bundle.open(name) as stream:
+                frames.append(pd.read_csv(stream, usecols=source_columns(header), low_memory=False))
     return pd.concat(frames, ignore_index=True)
 
 
@@ -51,7 +53,9 @@ def reconcile_source_to_silver_files(source_zip: Path, silver_parquet: Path) -> 
             raise ValueError("Census PUMS ZIP contains no CSV files")
         for name in names:
             with bundle.open(name) as stream:
-                for chunk in pd.read_csv(stream, usecols=COLUMNS, chunksize=50_000, low_memory=False):
+                header = pd.read_csv(stream, nrows=0).columns
+            with bundle.open(name) as stream:
+                for chunk in pd.read_csv(stream, usecols=source_columns(header), chunksize=50_000, low_memory=False):
                     source_rows += _update_fingerprint(source_digest, chunk)
 
     silver_digest = hashlib.sha256()

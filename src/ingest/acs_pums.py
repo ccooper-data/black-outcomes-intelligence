@@ -17,10 +17,10 @@ import pandas as pd
 DEFAULT_YEAR = 2024
 DEFAULT_BUCKET = "black-outcomes-intelligence-dev-4623dd8370ffd332f292468c61"
 DEFAULT_URL_TEMPLATE = "https://www2.census.gov/programs-surveys/acs/data/pums/{year}/1-Year/csv_pus.zip"
-# The 2024 FTP person file uses STATE (not the API geography alias ST).
+# ACS FTP schemas changed from ST (2022) to STATE (2023+); Silver canonicalizes both to STATE.
 PERSON_REPLICATE_WEIGHTS = tuple(f"PWGTP{i}" for i in range(1, 81))
 REQUIRED_COLUMNS = {
-    "SERIALNO", "SPORDER", "STATE", "PUMA", "AGEP", "SEX", "RAC1P", "MAR",
+    "SERIALNO", "SPORDER", "PUMA", "AGEP", "SEX", "RAC1P", "MAR",
     "SCHL", "PINCP", "ESR", "PWGTP", *PERSON_REPLICATE_WEIGHTS,
 }
 
@@ -57,6 +57,8 @@ def validate_archive(archive: Path) -> dict[str, object]:
                 frame = pd.read_csv(stream, nrows=50)
             columns = set(frame.columns)
             missing = sorted(REQUIRED_COLUMNS - columns)
+            if not ({"ST", "STATE"} & columns):
+                missing.append("STATE_or_ST")
             if missing:
                 raise ValueError(f"{name} is missing required PUMS columns: {missing}")
             observed_columns.update(columns)

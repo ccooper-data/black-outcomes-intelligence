@@ -29,10 +29,12 @@ jobs:
           role-to-assume: arn:aws:iam::780976819607:role/black-outcomes-github-deploy
           aws-region: us-east-2
       - name: Download Silver once and build replicate-weight Gold
+        if: ${{ inputs.year != '2022-2024' }}
         run: |
           aws s3 cp "s3://$BUCKET/silver/acs_pums_person/year=${{ inputs.year }}/data/part-00000.parquet" /tmp/silver.parquet
           python -m src.transform.build_marts --silver /tmp/silver.parquet --output-dir /tmp/gold --year "${{ inputs.year }}"
       - name: Validate statistical output and upload
+        if: ${{ inputs.year != '2022-2024' }}
         run: |
           python - <<'PY'
           import pandas as pd
@@ -43,4 +45,33 @@ jobs:
                   required = {f'{metric}_{x}' for x in ('estimate','standard_error','ci95_lower','ci95_upper','unweighted_n','weighted_denominator','is_suppressed','suppression_reason')}
                   assert required <= set(d.columns), required - set(d.columns)
           PY
-          aws s3 sync /tmp/gold "s3://$BUCKET/gold/black_outcomes/year=${{ inputs.year }}/" --delete
+          for name in national.csv states.csv intersectional.csv manifest.json; do
+            test -f "/tmp/gold/$name"
+            aws s3 cp "/tmp/gold/$name" "s3://$BUCKET/gold/black_outcomes/year=${{ inputs.year }}/$name"
+          done
+      - name: Build 2022-2024 longitudinal Gold
+        if: ${{ inputs.year == '2022-2024' }}
+        run: |
+          set -euo pipefail
+          for year in 2022 2023 2024; do
+            aws s3 cp "s3://$BUCKET/silver/acs_pums_person/year=$year/data/part-00000.parquet" "/tmp/silver-$year.parquet"
+          done
+          python -m src.transform.build_longitudinal \
+            --silver 2022=/tmp/silver-2022.parquet \
+            --silver 2023=/tmp/silver-2023.parquet \
+            --silver 2024=/tmp/silver-2024.parquet \
+            --output-dir /tmp/longitudinal
+          python - <<'PY'
+          import pandas as pd
+          trends = pd.read_csv('/tmp/longitudinal/trends.csv')
+          contrasts = pd.read_csv('/tmp/longitudinal/contrasts.csv')
+          assert len(trends) == 2184
+          assert len(contrasts) == 1092
+          assert set(trends.survey_year) == {2022, 2023, 2024}
+          assert not trends.duplicated(['survey_year','state','sex','age_band']).any()
+          assert not contrasts.duplicated(['survey_year','state','age_band']).any()
+          PY
+          for name in trends.csv contrasts.csv manifest.json; do
+            test -f "/tmp/longitudinal/$name"
+            aws s3 cp "/tmp/longitudinal/$name" "s3://$BUCKET/gold/black_outcomes_longitudinal/years=2022-2024/$name"
+          done

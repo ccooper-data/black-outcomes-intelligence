@@ -18,6 +18,8 @@ INTEGER_COLUMNS = [c for c in COLUMNS if c != "SERIALNO"]
 
 
 def transform_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    if "STATE" not in frame.columns and "ST" in frame.columns:
+        frame = frame.rename(columns={"ST": "STATE"})
     missing = sorted(set(COLUMNS) - set(frame.columns))
     if missing:
         raise ValueError(f"Bronze PUMS data missing required columns: {missing}")
@@ -45,6 +47,19 @@ def transform_frame(frame: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def source_columns(columns: list[str] | pd.Index) -> list[str]:
+    """Return raw CSV fields needed for the canonical Silver schema."""
+    available = set(columns)
+    geography = "STATE" if "STATE" in available else "ST" if "ST" in available else None
+    if geography is None:
+        raise ValueError("Bronze PUMS data missing required geography column STATE or ST")
+    required = [column for column in COLUMNS if column != "STATE"]
+    missing = sorted(set(required) - available)
+    if missing:
+        raise ValueError(f"Bronze PUMS data missing required columns: {missing}")
+    return [geography if column == "STATE" else column for column in COLUMNS]
+
+
 def run(year: int, bucket: str) -> dict[str, object]:
     import boto3
 
@@ -64,7 +79,9 @@ def run(year: int, bucket: str) -> dict[str, object]:
                 raise ValueError("Bronze archive contains no CSV files")
             for name in names:
                 with bundle.open(name) as stream:
-                    frames.append(transform_frame(pd.read_csv(stream, usecols=COLUMNS, low_memory=False)))
+                    header = pd.read_csv(stream, nrows=0).columns
+                with bundle.open(name) as stream:
+                    frames.append(transform_frame(pd.read_csv(stream, usecols=source_columns(header), low_memory=False)))
         silver = pd.concat(frames, ignore_index=True)
         if silver.empty:
             raise ValueError("Silver dataset contains zero records")
