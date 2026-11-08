@@ -1,0 +1,17 @@
+{
+  "artifacts": {
+    "research_findings.html": "2768ec04e522e5fe086e98d66be0e8a1d0d7a729667ad175c079795077ead0a9",
+    "research_findings.md": "eba24f4ce31605190ecaff994aae50298c6f6a1ff88479067a734e5b04f70875",
+    "research_findings_appendix.csv": "c1c994e4c46e0b04ab24ddc321d5542a2527031fd13bf42fbef8658abe830b02"
+  },
+  "causal_interpretation": false,
+  "phase": 8,
+  "publishable_rows": 180,
+  "rows": 208,
+  "source_hashes": {
+    "inference.csv": "419fe8bf28e4dfdf9ccddad03e4f2d60260d1314bc3ff7d3f5c7cfe7c2e03762",
+    "inference_manifest.json": "7e01629042d26e05240cf1483ee820dddda57830c08f487c42bfe3dd5250a4a5"
+  },
+  "suppressed_rows": 28,
+  "survey_year": 2024
+}
