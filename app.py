@@ -10,8 +10,10 @@ import pandas as pd
 import streamlit as st
 
 from src.ask_data import UnsafeAnswerError, ask_data, build_evidence_store
+from src.research_report import load_report_package
 
 DATA_DIR = Path(__file__).parent / "data" / "published"
+REPORT_DIR = DATA_DIR / "research_report" / "2024"
 STATE_NAMES = {
     1:"Alabama",2:"Alaska",4:"Arizona",5:"Arkansas",6:"California",8:"Colorado",9:"Connecticut",10:"Delaware",11:"District of Columbia",12:"Florida",13:"Georgia",15:"Hawaii",16:"Idaho",17:"Illinois",18:"Indiana",19:"Iowa",20:"Kansas",21:"Kentucky",22:"Louisiana",23:"Maine",24:"Maryland",25:"Massachusetts",26:"Michigan",27:"Minnesota",28:"Mississippi",29:"Missouri",30:"Montana",31:"Nebraska",32:"Nevada",33:"New Hampshire",34:"New Jersey",35:"New Mexico",36:"New York",37:"North Carolina",38:"North Dakota",39:"Ohio",40:"Oklahoma",41:"Oregon",42:"Pennsylvania",44:"Rhode Island",45:"South Carolina",46:"South Dakota",47:"Tennessee",48:"Texas",49:"Utah",50:"Vermont",51:"Virginia",53:"Washington",54:"West Virginia",55:"Wisconsin",56:"Wyoming"
 }
@@ -119,6 +121,11 @@ def format_value(value, value_type):
 @st.cache_data
 def load_chat_evidence():
     return build_evidence_store(DATA_DIR)
+
+
+@st.cache_data
+def load_research_report():
+    return load_report_package(REPORT_DIR)
 
 
 st.set_page_config(page_title="Black Outcomes Intelligence", page_icon="📊", layout="wide")
@@ -400,6 +407,45 @@ else:
                 f"Black men unweighted n: {int(inference_row['men_unweighted_n']):,}; "
                 f"weighted denominator: {inference_row['men_weighted_denominator']:,.0f}."
             )
+
+st.divider()
+st.subheader("2024 research findings report")
+try:
+    report_manifest, report_files = load_research_report()
+except Exception as exc:
+    st.error("The published research report failed integrity validation.")
+    st.exception(exc)
+    report_manifest, report_files = {}, {}
+if not report_files:
+    st.info("The reviewed Phase 8 research report has not yet been published.")
+else:
+    st.caption(
+        "Versioned findings generated from validated public aggregates. The report describes associations, "
+        "sampling uncertainty, multiplicity control, suppression, provenance, and limitations; it is not causal."
+    )
+    report_col, appendix_col, methods_col = st.columns(3)
+    report_col.download_button(
+        "Download HTML report",
+        data=report_files["research_findings.html"],
+        file_name="black_outcomes_2024_research_findings.html",
+        mime="text/html",
+    )
+    appendix_col.download_button(
+        "Download audit appendix",
+        data=report_files["research_findings_appendix.csv"],
+        file_name="black_outcomes_2024_research_findings_appendix.csv",
+        mime="text/csv",
+    )
+    methods_col.download_button(
+        "Download Markdown report",
+        data=report_files["research_findings.md"],
+        file_name="black_outcomes_2024_research_findings.md",
+        mime="text/markdown",
+    )
+    st.caption(
+        f"Release contains {report_manifest['publishable_rows']} publishable and "
+        f"{report_manifest['suppressed_rows']} suppressed comparisons. Artifact hashes are verified at load time."
+    )
 
 st.divider()
 st.subheader("2022–2024 trends and direct comparisons")
