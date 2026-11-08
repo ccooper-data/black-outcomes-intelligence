@@ -17,3 +17,5 @@ jobs:
           grep -q -- "--source /tmp/source.zip" .github/workflows/publish-gold-analytics.yml
           grep -q -- "--silver /tmp/silver.parquet" .github/workflows/publish-gold-analytics.yml
           grep -q 'cmp "/tmp/published/$name"' .github/workflows/publish-gold-analytics.yml
+          grep -q 'default: false' .github/workflows/publish-gold-analytics.yml
+          grep -q 'if:.*inputs.publish' .github/workflows/publish-gold-analytics.yml

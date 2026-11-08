@@ -8,6 +8,11 @@ on:
         required: true
         default: "2024"
         type: string
+      publish:
+        description: "Write reconciled artifacts to the published prefix"
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -59,15 +64,20 @@ jobs:
             --report /tmp/reconciliation-report.json
           cat /tmp/reconciliation-report.json
       - name: Publish only after reconciliation passes
+        if: ${{ inputs.publish }}
         run: |
           set -euo pipefail
           for name in national.csv states.csv manifest.json; do
             aws s3 cp "/tmp/published/$name" "s3://$BUCKET/published/year=${{ inputs.year }}/$name"
           done
       - name: Verify published objects are byte-identical to reconciled candidates
+        if: ${{ inputs.publish }}
         run: |
           set -euo pipefail
           for name in national.csv states.csv manifest.json; do
             aws s3 cp "s3://$BUCKET/published/year=${{ inputs.year }}/$name" "/tmp/verify-$name"
             cmp "/tmp/published/$name" "/tmp/verify-$name"
           done
+      - name: Record dry-run result
+        if: ${{ !inputs.publish }}
+        run: echo "Reconciliation passed in dry-run mode; no published objects were written."
