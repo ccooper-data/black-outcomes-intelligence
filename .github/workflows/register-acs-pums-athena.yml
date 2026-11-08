@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   register:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
       AWS_REGION: us-east-2

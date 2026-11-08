@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   snapshot:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       BUCKET: black-outcomes-intelligence-dev-4623dd8370ffd332f292468c61
     steps:
