@@ -129,6 +129,45 @@ def _model_evidence(frame: pd.DataFrame) -> list[Evidence]:
     return records
 
 
+def _inference_evidence(frame: pd.DataFrame) -> list[Evidence]:
+    records: list[Evidence] = []
+    for _, row in frame.iterrows():
+        metric = str(row["metric"])
+        label, kind, aliases = METRICS[metric]
+        geography = _location(row)
+        scope = f"{int(row['survey_year'])} | {geography} | Age-adjusted Black women minus Black men"
+        suppressed = bool(row["difference_is_suppressed"])
+        n = int(row["difference_unweighted_n"])
+        denominator = float(row["difference_weighted_denominator"])
+        if suppressed:
+            reason = str(row["difference_suppression_reason"])
+            detail = (
+                f"{label} difference: Suppressed ({reason}); minimum component unweighted n {n:,}; "
+                f"minimum component weighted denominator {denominator:,.0f}."
+            )
+            estimate = None
+        else:
+            estimate = float(row["difference_estimate"])
+            low = float(row["difference_ci95_lower"])
+            high = float(row["difference_ci95_upper"])
+            q_value = float(row["difference_q_value"])
+            conclusion = (
+                "statistically distinguishable after FDR control"
+                if bool(row["difference_fdr_significant"])
+                else "not statistically distinguishable after FDR control"
+            )
+            detail = (
+                f"{label} difference: {_format(estimate, kind)} "
+                f"(95% CI {_format(low, kind)}–{_format(high, kind)}); q-value {q_value:.6g}; "
+                f"{conclusion}; minimum component unweighted n {n:,}; "
+                f"minimum component weighted denominator {denominator:,.0f}."
+            )
+        text = f"{scope} | {detail} Source: inference.csv."
+        search = " ".join((text, metric.replace("_", " "), *aliases, "inference reliable significant q value")).lower()
+        records.append(Evidence("inference.csv", metric, text, search, estimate, suppressed))
+    return records
+
+
 def build_evidence_store(data_dir: Path) -> tuple[Evidence, ...]:
     """Build a searchable store from public aggregate snapshots only."""
     specs = (
@@ -146,6 +185,9 @@ def build_evidence_store(data_dir: Path) -> tuple[Evidence, ...]:
     model_path = data_dir / "model_metrics.csv"
     if model_path.exists():
         evidence.extend(_model_evidence(pd.read_csv(model_path)))
+    inference_path = data_dir / "inference.csv"
+    if inference_path.exists():
+        evidence.extend(_inference_evidence(pd.read_csv(inference_path)))
     if not evidence:
         raise ValueError("No published aggregate evidence is available.")
     return tuple(evidence)
@@ -187,6 +229,11 @@ def retrieve_evidence(question: str, evidence: Sequence[Evidence], limit: int = 
             candidates = [item for item in candidates if item.metric == "log_loss"] or candidates
     if requested_metric:
         candidates = [item for item in candidates if item.metric == requested_metric]
+    inference_query = any(term in terms for term in {
+        "adjusted", "inference", "significant", "significance", "reliable", "reliability",
+    }) or "q-value" in query or "which differences matter" in query
+    if inference_query:
+        candidates = [item for item in candidates if item.source == "inference.csv"] or candidates
     if "state" in terms or "states" in terms:
         candidates = [item for item in candidates if item.source == "states.csv"] or candidates
     trend_query = any(term in terms for term in {"trend", "trends", "over", "time", "change", "changed"})

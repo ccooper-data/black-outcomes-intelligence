@@ -1,0 +1,77 @@
+name: Publish Phase 7 Research Inference
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Write reconciled aggregate inference artifacts"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  inference:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      BUCKET: black-outcomes-intelligence-dev-4623dd8370ffd332f292468c61
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: {python-version: "3.12"}
+      - run: pip install -r requirements.txt
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::780976819607:role/black-outcomes-github-deploy
+          aws-region: us-east-2
+      - name: Download authoritative 2024 source and Silver stages
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/gold-inference /tmp/published-inference
+          aws s3 cp "s3://$BUCKET/bronze/acs_pums/year=2024/release=1-year/csv_pus.zip" /tmp/source-2024.zip
+          aws s3 cp "s3://$BUCKET/silver/acs_pums_person/year=2024/data/part-00000.parquet" /tmp/silver-2024.parquet
+      - name: Build aggregate age-adjusted inference
+        run: |
+          python -m src.transform.build_inference \
+            --silver /tmp/silver-2024.parquet --year 2024 --output-dir /tmp/gold-inference
+          python -m src.transform.publish_dashboard \
+            --gold-dir /tmp/gold-inference --output-dir /tmp/published-inference --inference
+      - name: Enforce source-to-dashboard reconciliation
+        run: |
+          python -m src.transform.reconcile_inference \
+            --source /tmp/source-2024.zip --silver /tmp/silver-2024.parquet \
+            --gold-dir /tmp/gold-inference --published-dir /tmp/published-inference \
+            --year 2024 --report /tmp/inference-reconciliation.json
+          cat /tmp/inference-reconciliation.json
+      - name: Retain reconciled aggregate evidence for review
+        uses: actions/upload-artifact@v7
+        with:
+          name: phase-7-inference-review-${{ github.run_id }}
+          path: |
+            /tmp/published-inference/*
+            /tmp/inference-reconciliation.json
+          retention-days: 7
+          if-no-files-found: error
+      - name: Publish only after reconciliation
+        if: ${{ inputs.publish }}
+        run: |
+          set -euo pipefail
+          for name in inference.csv inference_manifest.json; do
+            aws s3 cp "/tmp/gold-inference/$name" "s3://$BUCKET/gold/research_inference/year=2024/$name"
+            aws s3 cp "/tmp/published-inference/$name" "s3://$BUCKET/published/research_inference/year=2024/$name"
+          done
+      - name: Verify published objects byte-for-byte
+        if: ${{ inputs.publish }}
+        run: |
+          set -euo pipefail
+          for name in inference.csv inference_manifest.json; do
+            aws s3 cp "s3://$BUCKET/published/research_inference/year=2024/$name" "/tmp/verify-$name"
+            cmp "/tmp/published-inference/$name" "/tmp/verify-$name"
+          done
+      - name: Record dry-run result
+        if: ${{ !inputs.publish }}
+        run: echo "Phase 7 reconciliation passed; review evidence was retained and no S3 objects were written."

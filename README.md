@@ -48,4 +48,8 @@ Phase 5 evaluates an XGBoost challenger against the Phase 4 logistic model on th
 
 Phase 6 adds an optional OpenAI Responses API assistant over the validated public aggregate snapshots. The assistant receives only a bounded evidence packet, must cite supplied records, and is blocked from displaying numeric claims that are absent from that evidence. It cannot access AWS, microdata, suppressed estimates, or person-level predictions. The API key stays in server-side configuration, activation requires a separate explicit flag, requests are rate- and size-limited for cost control, and tests use a fake client without paid calls. See [docs/phase6_ask_the_data.md](docs/phase6_ask_the_data.md).
 
+## Phase 7: research inference
+
+Phase 7 adds age-adjusted Black-women-minus-Black-men comparisons for marriage, education, employment, and personal income. A common 2024 national Black-adult age distribution and every adjusted outcome are recomputed through all 80 replicate weights. Direct paired contrasts carry 95% confidence intervals, p-values, and state-level Benjamini–Hochberg false-discovery-rate control. Statistical evidence remains separate from effect magnitude and causal interpretation. See [docs/phase7_research_inference.md](docs/phase7_research_inference.md).
+
 The low-cost public deployment path uses Streamlit Community Cloud with `main` and `app.py`. Deployment, project spending controls, secret entry, smoke testing, and final activation are separate gates. See [docs/phase6_community_cloud.md](docs/phase6_community_cloud.md).

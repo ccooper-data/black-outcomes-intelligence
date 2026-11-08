@@ -63,6 +63,22 @@ def test_specific_metric_outranks_generic_population_language():
     assert "Marriage rate: 32.0%" in selected[0].text
 
 
+def test_inference_questions_route_to_age_adjusted_evidence():
+    evidence = (
+        Evidence("national.csv", "married_rate", "2024 national marriage rate 32.0%", "2024 national marriage rate", 0.32, False),
+        Evidence(
+            "inference.csv", "married_rate",
+            "2024 National age-adjusted marriage difference -4.0%; q-value 0.01",
+            "2024 national age adjusted marriage difference significant reliable q value",
+            -0.04, False,
+        ),
+    )
+    selected = retrieve_evidence(
+        "Is the age-adjusted national marriage difference statistically significant?", evidence
+    )
+    assert selected[0].source == "inference.csv"
+
+
 def test_api_request_is_not_stored_and_uses_aggregate_packet():
     evidence = (
         Evidence("national.csv", "married_rate", "2024 | National | Marriage rate: 32.0% [public aggregate].", "2024 national marriage rate", 0.32, False),

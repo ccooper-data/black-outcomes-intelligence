@@ -80,11 +80,29 @@ def load_data():
             raise ValueError("Published Phase 5 evidence package is incomplete.")
         if robustness_card.get("automatic_promotion") is not False or robustness_card.get("person_level_predictions_published") is not False:
             raise ValueError("Published Phase 5 governance contract failed validation.")
+    inference_path = DATA_DIR / "inference.csv"
+    inference_manifest_path = DATA_DIR / "inference_manifest.json"
+    inference = pd.read_csv(inference_path) if inference_path.exists() else pd.DataFrame()
+    inference_manifest = json.loads(inference_manifest_path.read_text()) if inference_manifest_path.exists() else {}
+    if not inference.empty:
+        if len(inference) != 208 or set(inference["survey_year"]) != {2024}:
+            raise ValueError("Published Phase 7 inference snapshot failed row-count or year validation.")
+        if set(inference["metric"]) != {
+            "married_rate", "bachelors_plus_rate", "employment_rate", "mean_personal_income",
+        }:
+            raise ValueError("Published Phase 7 inference metrics failed validation.")
+        required_inference = {
+            "women_estimate", "men_estimate", "difference_estimate", "difference_standard_error",
+            "difference_ci95_lower", "difference_ci95_upper", "difference_p_value",
+            "difference_q_value", "difference_fdr_significant", "difference_is_suppressed",
+        }
+        if not required_inference <= set(inference) or inference_manifest.get("causal_interpretation") is not False:
+            raise ValueError("Published Phase 7 inference contract failed validation.")
     return (
         national, states, intersectional, trends, contrasts,
         model_metrics, model_calibration, model_card,
         robustness_metrics, robustness_comparisons, robustness_calibration,
-        robustness_features, robustness_card,
+        robustness_features, robustness_card, inference, inference_manifest,
     )
 
 
@@ -110,7 +128,7 @@ try:
         national, states, intersectional, trends, contrasts,
         model_metrics, model_calibration, model_card,
         robustness_metrics, robustness_comparisons, robustness_calibration,
-        robustness_features, robustness_card,
+        robustness_features, robustness_card, inference, inference_manifest,
     ) = load_data()
 except Exception as exc:
     st.error("The validated dashboard snapshot is unavailable.")
@@ -306,6 +324,75 @@ if set(comparison_rows["sex"]) == {"Black women", "Black men"}:
         st.bar_chart(comparison_chart, y_label=comparison_metric, height=280)
 else:
     st.warning("The selected comparison is unavailable in the validated snapshot.")
+
+st.divider()
+st.subheader("Phase 7: age-adjusted differences")
+if inference.empty:
+    st.info("The Phase 7 research-inference snapshot has not yet been published.")
+else:
+    st.caption(
+        "Black women-minus-Black men comparisons use a common 2024 national Black-adult age distribution. "
+        "Confidence intervals and tests use paired ACS replicate estimates. State findings control the false "
+        "discovery rate within each outcome; associations are descriptive, not causal."
+    )
+    inference = inference.copy()
+    inference["state_name"] = inference["state"].map(STATE_NAMES).fillna("National")
+    inference_geography = st.selectbox(
+        "Inference geography", ["National"] + sorted(states.state_name.dropna().tolist())
+    )
+    inference_measure = st.selectbox(
+        "Age-adjusted outcome",
+        ["Marriage rate", "Bachelor's+ rate", "Employment rate", "Mean personal income"],
+    )
+    inference_config = {
+        "Marriage rate": ("married_rate", "percent"),
+        "Bachelor's+ rate": ("bachelors_plus_rate", "percent"),
+        "Employment rate": ("employment_rate", "percent"),
+        "Mean personal income": ("mean_personal_income", "currency"),
+    }
+    inference_metric, inference_kind = inference_config[inference_measure]
+    inference_row = inference.loc[
+        (inference["state_name"] == inference_geography)
+        & (inference["metric"] == inference_metric)
+    ]
+    if inference_row.empty:
+        st.warning("The selected age-adjusted comparison is unavailable.")
+    else:
+        inference_row = inference_row.iloc[0]
+        if bool(inference_row["difference_is_suppressed"]):
+            st.warning(
+                "This comparison is suppressed under the component sample-size and stability rules. "
+                f"Reason: {inference_row['difference_suppression_reason']}"
+            )
+        else:
+            women_col, men_col, difference_col = st.columns(3)
+            women_col.metric("Black women — age adjusted", format_value(inference_row["women_estimate"], inference_kind))
+            men_col.metric("Black men — age adjusted", format_value(inference_row["men_estimate"], inference_kind))
+            difference_col.metric(
+                "Women minus men",
+                format_value(inference_row["difference_estimate"], inference_kind),
+            )
+            difference_col.caption(
+                "95% CI "
+                f"{format_value(inference_row['difference_ci95_lower'], inference_kind)}–"
+                f"{format_value(inference_row['difference_ci95_upper'], inference_kind)}"
+            )
+            if bool(inference_row["difference_fdr_significant"]):
+                st.success(
+                    f"Statistically distinguishable after multiplicity control (q={inference_row['difference_q_value']:.3g}). "
+                    "The observed difference is not evidence of causation or of individual outcomes."
+                )
+            else:
+                st.info(
+                    f"Not statistically distinguishable after multiplicity control (q={inference_row['difference_q_value']:.3g}). "
+                    "The data do not establish a nonzero population difference for this comparison."
+                )
+            st.caption(
+                f"Black women unweighted n: {int(inference_row['women_unweighted_n']):,}; "
+                f"weighted denominator: {inference_row['women_weighted_denominator']:,.0f}. "
+                f"Black men unweighted n: {int(inference_row['men_unweighted_n']):,}; "
+                f"weighted denominator: {inference_row['men_weighted_denominator']:,.0f}."
+            )
 
 st.divider()
 st.subheader("2022–2024 trends and direct comparisons")

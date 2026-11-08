@@ -32,3 +32,16 @@ def test_redaction_handles_multiple_metrics_independently():
     public = redact_suppressed(frame)
     assert pd.isna(public.loc[0, "a_estimate"])
     assert public.loc[0, "b_estimate"] == 2.0
+
+
+def test_suppressed_inference_blanks_tests_and_decisions():
+    frame = pd.DataFrame({
+        "difference_estimate": [0.1], "difference_p_value": [0.01],
+        "difference_q_value": [0.02], "difference_fdr_significant": [True],
+        "difference_is_suppressed": [True],
+    })
+    public = redact_suppressed(frame)
+    assert pd.isna(public.loc[0, "difference_estimate"])
+    assert pd.isna(public.loc[0, "difference_p_value"])
+    assert pd.isna(public.loc[0, "difference_q_value"])
+    assert pd.isna(public.loc[0, "difference_fdr_significant"])
