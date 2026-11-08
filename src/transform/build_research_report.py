@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import html
 import json
+import numbers
 from pathlib import Path
 
 import pandas as pd
@@ -47,6 +49,28 @@ def sha256(path: Path) -> str:
         for block in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def _csv_value(value: object) -> object:
+    """Return a stable CSV scalar independent of pandas' float formatter."""
+    if pd.isna(value):
+        return ""
+    if isinstance(value, (bool,)):
+        return "True" if value else "False"
+    if isinstance(value, numbers.Integral):
+        return str(int(value))
+    if isinstance(value, numbers.Real):
+        return format(float(value), ".17g")
+    return str(value)
+
+
+def write_deterministic_csv(frame: pd.DataFrame, path: Path) -> None:
+    """Write RFC-style CSV with Python-controlled scalar formatting and newlines."""
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle, lineterminator="\n")
+        writer.writerow(frame.columns)
+        for row in frame.itertuples(index=False, name=None):
+            writer.writerow([_csv_value(value) for value in row])
 
 
 def _bool_series(series: pd.Series) -> pd.Series:
@@ -277,7 +301,7 @@ def build_report(inference_path: Path, manifest_path: Path, output_dir: Path) ->
         ["metric", "state_name"]
     ).reset_index(drop=True)
     appendix_path = output_dir / "research_findings_appendix.csv"
-    appendix.to_csv(appendix_path, index=False)
+    write_deterministic_csv(appendix, appendix_path)
     markdown = build_markdown(frame, source_hashes)
     markdown_path = output_dir / "research_findings.md"
     markdown_path.write_text(markdown)

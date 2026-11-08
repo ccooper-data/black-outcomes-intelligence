@@ -12,6 +12,6 @@ Suppressed public rows retain only flags, reasons, and denominator metadata. The
 
 ## Reproducibility and release gate
 
-Every artifact is generated twice and compared byte-for-byte. The manifest records SHA-256 hashes for both source snapshots and all report artifacts. The manual workflow retains the review package for seven days and has no cloud credentials or publication step.
+Every artifact is generated twice and compared byte-for-byte. CSV scalar formatting and line endings are controlled by the standard-library writer rather than pandas' version-dependent default float formatter. The manifest records SHA-256 hashes for both source snapshots and all report artifacts. The manual workflow retains the review package for seven days and has no cloud credentials or publication step.
 
 Publication is a separate decision after reviewing the real artifact. A future publication mechanism must preserve the reviewed bytes, keep versioned provenance, and receive explicit authorization.
