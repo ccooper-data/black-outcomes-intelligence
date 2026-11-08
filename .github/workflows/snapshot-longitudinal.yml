@@ -14,9 +14,9 @@ jobs:
     env:
       BUCKET: black-outcomes-intelligence-dev-4623dd8370ffd332f292468c61
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: {persist-credentials: true}
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::780976819607:role/black-outcomes-github-deploy
           aws-region: us-east-2

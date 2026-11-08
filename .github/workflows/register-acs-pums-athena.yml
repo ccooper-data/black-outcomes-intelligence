@@ -25,9 +25,9 @@ jobs:
       RESULTS_PREFIX: athena-results/validation
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::780976819607:role/black-outcomes-github-deploy
           aws-region: us-east-2
