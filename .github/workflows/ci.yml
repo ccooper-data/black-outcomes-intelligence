@@ -66,3 +66,10 @@ jobs:
             echo 'Destructive Phase 7 prefix synchronization is forbidden.' >&2
             exit 1
           fi
+      - name: Verify Phase 8 report safeguards
+        run: |
+          set -euo pipefail
+          grep -q 'build_research_report' .github/workflows/build-research-report.yml
+          grep -q 'cmp "/tmp/phase-8-report/$name"' .github/workflows/build-research-report.yml
+          grep -q 'actions/upload-artifact@v7' .github/workflows/build-research-report.yml
+          ! grep -q 'configure-aws-credentials\|aws s3\|git push\|OPENAI_API_KEY' .github/workflows/build-research-report.yml

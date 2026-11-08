@@ -52,4 +52,8 @@ Phase 6 adds an optional OpenAI Responses API assistant over the validated publi
 
 Phase 7 adds age-adjusted Black-women-minus-Black-men comparisons for marriage, education, employment, and personal income. A common 2024 national Black-adult age distribution and every adjusted outcome are recomputed through all 80 replicate weights. Direct paired contrasts carry 95% confidence intervals, p-values, and state-level Benjamini–Hochberg false-discovery-rate control. Statistical evidence remains separate from effect magnitude and causal interpretation. See [docs/phase7_research_inference.md](docs/phase7_research_inference.md).
 
+## Phase 8: automated research findings report
+
+Phase 8 generates deterministic Markdown, HTML, a complete aggregate appendix, and a hash manifest from the validated Phase 7 public snapshot. It reports national results, transparent state summary counts, uncertainty, multiplicity control, suppression, provenance, and limitations without generative text or microdata access. The manual workflow rebuilds every artifact twice and compares it byte-for-byte; it retains a review artifact but cannot publish. See [docs/phase8_research_report.md](docs/phase8_research_report.md).
+
 The low-cost public deployment path uses Streamlit Community Cloud with `main` and `app.py`. Deployment, project spending controls, secret entry, smoke testing, and final activation are separate gates. See [docs/phase6_community_cloud.md](docs/phase6_community_cloud.md).
