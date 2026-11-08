@@ -46,3 +46,11 @@ jobs:
           grep -q 'if:.*inputs.publish' .github/workflows/publish-model-robustness.yml
           grep -q 'cmp "/tmp/published-robustness/$name"' .github/workflows/publish-model-robustness.yml
           ! grep -R --exclude=ci.yml -q 'person_predictions.csv' .github src
+      - name: Verify Phase 6 chat safeguards
+        run: |
+          grep -q 'store=False' src/ask_data.py
+          grep -q 'max_output_tokens=500' src/ask_data.py
+          grep -q 'OPENAI_API_KEY' app.py
+          grep -q 'ASK_DATA_ENABLED' app.py
+          ! grep -R --exclude=ci.yml -E -q 'sk-[A-Za-z0-9_-]{16,}' .
+          ! grep -q 'data/bronze\|data/silver\|/tmp/source\|/tmp/silver' src/ask_data.py

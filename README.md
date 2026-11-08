@@ -43,3 +43,7 @@ Phase 4 fits a transparent survey-weighted marriage benchmark on 2022–2023 and
 ## Phase 5: nonlinear challenger robustness
 
 Phase 5 evaluates an XGBoost challenger against the Phase 4 logistic model on the same untouched 2024 release. Paired per-record loss differences are recomputed with all 80 replicate weights, and stability is reported overall, by state, sex, age, and sex × age. Aggregate gain importance is descriptive only; SHAP and automatic promotion are deliberately excluded pending real held-out review. See [docs/phase5_model_robustness.md](docs/phase5_model_robustness.md).
+
+## Phase 6: Ask the Data
+
+Phase 6 adds an optional OpenAI Responses API assistant over the validated public aggregate snapshots. The assistant receives only a bounded evidence packet, must cite supplied records, and is blocked from displaying numeric claims that are absent from that evidence. It cannot access AWS, microdata, suppressed estimates, or person-level predictions. The API key stays in server-side configuration, activation requires a separate explicit flag, requests are rate- and size-limited for cost control, and tests use a fake client without paid calls. See [docs/phase6_ask_the_data.md](docs/phase6_ask_the_data.md).

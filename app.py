@@ -3,9 +3,13 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
+import os
+import time
 
 import pandas as pd
 import streamlit as st
+
+from src.ask_data import UnsafeAnswerError, ask_data, build_evidence_store
 
 DATA_DIR = Path(__file__).parent / "data" / "published"
 STATE_NAMES = {
@@ -92,6 +96,11 @@ def format_value(value, value_type):
     return f"{int(value):,}"
 
 
+@st.cache_data
+def load_chat_evidence():
+    return build_evidence_store(DATA_DIR)
+
+
 st.set_page_config(page_title="Black Outcomes Intelligence", page_icon="📊", layout="wide")
 st.title("Black Outcomes Intelligence")
 st.caption("2022–2024 American Community Survey PUMS · weighted estimates for Black adults age 18+")
@@ -124,6 +133,70 @@ c1.metric("Black adult population", metric_text(n, "black_population", "compact"
 c2.metric("Married", metric_text(n, "married_rate", "percent"))
 c3.metric("Bachelor's+", metric_text(n, "bachelors_plus_rate", "percent"))
 c4.metric("Mean personal income", metric_text(n, "mean_personal_income", "currency"))
+
+st.subheader("Ask the data")
+st.caption(
+    "Ask questions about the published aggregate estimates. Answers are AI-generated, source-cited, "
+    "and cannot access Census microdata or suppressed values."
+)
+chat_enabled = os.getenv("ASK_DATA_ENABLED", "false").lower() == "true"
+api_key = os.getenv("OPENAI_API_KEY")
+if not chat_enabled:
+    st.info("Ask the Data is disabled by default. Set ASK_DATA_ENABLED=true in server configuration to activate it.")
+elif not api_key:
+    st.warning("Ask the Data is enabled but OPENAI_API_KEY is not configured on the server.")
+else:
+    from openai import OpenAI
+
+    if "ask_data_messages" not in st.session_state:
+        st.session_state.ask_data_messages = []
+    if "ask_data_request_times" not in st.session_state:
+        st.session_state.ask_data_request_times = []
+    if "ask_data_request_count" not in st.session_state:
+        st.session_state.ask_data_request_count = 0
+    for message in st.session_state.ask_data_messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+    if st.button("Clear chat", key="clear_ask_data"):
+        st.session_state.ask_data_messages = []
+        st.rerun()
+    question = st.chat_input("Ask about outcomes, trends, states, uncertainty, or model diagnostics")
+    if question:
+        history = list(st.session_state.ask_data_messages)
+        st.session_state.ask_data_messages.append({"role": "user", "content": question})
+        with st.chat_message("user"):
+            st.markdown(question)
+        with st.chat_message("assistant"):
+            try:
+                now = time.time()
+                recent = [timestamp for timestamp in st.session_state.ask_data_request_times if now - timestamp < 60]
+                if len(recent) >= 5 or st.session_state.ask_data_request_count >= 25:
+                    raise RuntimeError("Ask the Data session rate limit reached.")
+                st.session_state.ask_data_request_times = recent + [now]
+                st.session_state.ask_data_request_count += 1
+                client = OpenAI(api_key=api_key, timeout=30.0, max_retries=1)
+                result = ask_data(
+                    question,
+                    load_chat_evidence(),
+                    client,
+                    os.getenv("OPENAI_MODEL", "gpt-6-luna"),
+                    history,
+                )
+                st.markdown(result.text)
+                with st.expander("Evidence supplied to ChatGPT"):
+                    for index, item in enumerate(result.sources, start=1):
+                        st.markdown(f"**E{index}** — {item.text}")
+                st.session_state.ask_data_messages.append({"role": "assistant", "content": result.text})
+                st.session_state.ask_data_messages = st.session_state.ask_data_messages[-8:]
+            except UnsafeAnswerError:
+                st.error("The generated response failed the evidence-safety check. No answer was displayed.")
+            except RuntimeError as exc:
+                if "rate limit" in str(exc).lower():
+                    st.error("This chat session has reached its request limit. Please wait or start a later session.")
+                else:
+                    st.error("Ask the Data is temporarily unavailable. The dashboard data remain available below.")
+            except Exception:
+                st.error("Ask the Data is temporarily unavailable. The dashboard data remain available below.")
 
 st.subheader("Explore outcomes")
 state_options = ["Top 10 States"] + sorted(states.state_name.dropna().tolist())
