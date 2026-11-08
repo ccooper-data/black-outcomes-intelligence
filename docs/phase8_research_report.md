@@ -8,7 +8,7 @@ The builder accepts only the 208-row 2024 Phase 7 inference grain: one national 
 
 The report includes all four national comparisons. For each outcome, its state narrative reports the count of publishable FDR-significant comparisons and the count suppressed. A compact table shows the five largest absolute differences among publishable FDR-significant states. This is disclosed as a descriptive display rule, not a causal, practical-importance, or overall state ranking. The complete 208-row aggregate appendix accompanies the report.
 
-Suppressed public rows retain only flags, reasons, and denominator metadata. Their estimates, intervals, and probabilities remain blank. Report text is template-generated from validated records; generative AI does not author or embellish findings.
+Suppressed direct comparisons retain flags, reasons, and denominator metadata while their difference estimates, intervals, and probabilities remain blank. A component estimate is also blank when that component fails its own publication rules; the other component may remain visible when it independently passes every rule. Report text is template-generated from validated records; generative AI does not author or embellish findings.
 
 ## Reproducibility and release gate
 

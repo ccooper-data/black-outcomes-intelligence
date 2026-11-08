@@ -8,6 +8,7 @@ import hashlib
 import html
 import json
 import numbers
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -218,6 +219,7 @@ def build_markdown(frame: pd.DataFrame, source_hashes: dict[str, str]) -> str:
         "- Women-minus-men differences and uncertainty are recomputed from paired replicate estimates.",
         "- State p-values use Benjamini–Hochberg FDR adjustment within each outcome; national q-values equal p-values.",
         "- Cells are suppressed when component stability, sample-size, denominator, or finite-uncertainty rules fail.",
+        "- If one component is suppressed, the direct comparison is suppressed; the other component remains visible only when it independently passes every publication rule.",
         "- ACS PUMS is cross-sectional observational data. Results are associations, not causal effects.",
         "- Race, sex, income, employment, education, and marital-status variables follow the source-data definitions and do not capture every relevant identity or structural factor.",
         "- Cross-year change is not tested here because the available design does not provide cross-year covariance.",
@@ -233,6 +235,14 @@ def build_markdown(frame: pd.DataFrame, source_hashes: dict[str, str]) -> str:
         "",
     ]
     return "\n".join(lines)
+
+
+def _inline_html(value: str) -> str:
+    """Render the small, controlled inline-Markdown subset used by the report."""
+    escaped = html.escape(value)
+    escaped = re.sub(r"`([^`]+)`", r"<code>\1</code>", escaped)
+    escaped = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", escaped)
+    return escaped
 
 
 def markdown_to_html(markdown: str) -> str:
@@ -252,7 +262,7 @@ def markdown_to_html(markdown: str) -> str:
         if line.startswith("|---"):
             continue
         if line.startswith("|"):
-            cells = [html.escape(cell.strip()) for cell in line.strip("|").split("|")]
+            cells = [_inline_html(cell.strip()) for cell in line.strip("|").split("|")]
             if not in_table:
                 output.append("<table><thead><tr>" + "".join(f"<th>{c}</th>" for c in cells) + "</tr></thead><tbody>")
                 in_table = True
@@ -266,7 +276,7 @@ def markdown_to_html(markdown: str) -> str:
             if not in_list:
                 output.append("<ul>")
                 in_list = True
-            output.append(f"<li>{html.escape(line[2:])}</li>")
+            output.append(f"<li>{_inline_html(line[2:])}</li>")
             continue
         if in_list:
             output.append("</ul>")
@@ -274,13 +284,13 @@ def markdown_to_html(markdown: str) -> str:
         if not line:
             continue
         if line.startswith("### "):
-            output.append(f"<h3>{html.escape(line[4:])}</h3>")
+            output.append(f"<h3>{_inline_html(line[4:])}</h3>")
         elif line.startswith("## "):
-            output.append(f"<h2>{html.escape(line[3:])}</h2>")
+            output.append(f"<h2>{_inline_html(line[3:])}</h2>")
         elif line.startswith("# "):
-            output.append(f"<h1>{html.escape(line[2:])}</h1>")
+            output.append(f"<h1>{_inline_html(line[2:])}</h1>")
         else:
-            output.append(f"<p>{html.escape(line).replace('  ', '<br>')}</p>")
+            output.append(f"<p>{_inline_html(line).replace('  ', '<br>')}</p>")
     if in_table:
         output.append("</tbody></table>")
     if in_list:
