@@ -13,7 +13,7 @@ import pandas as pd
 from src.ingest.acs_pums import PERSON_REPLICATE_WEIGHTS
 
 DEFAULT_BUCKET = "black-outcomes-intelligence-dev-4623dd8370ffd332f292468c61"
-COLUMNS = ["SERIALNO", "SPORDER", "STATE", "PUMA", "AGEP", "RAC1P", "MAR", "SCHL", "PINCP", "ESR", "PWGTP", *PERSON_REPLICATE_WEIGHTS]
+COLUMNS = ["SERIALNO", "SPORDER", "STATE", "PUMA", "AGEP", "SEX", "RAC1P", "MAR", "SCHL", "PINCP", "ESR", "PWGTP", *PERSON_REPLICATE_WEIGHTS]
 INTEGER_COLUMNS = [c for c in COLUMNS if c != "SERIALNO"]
 
 

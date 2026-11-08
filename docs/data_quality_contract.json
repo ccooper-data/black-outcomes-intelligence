@@ -15,6 +15,7 @@
     "weighted_population": 31555652,
     "race_rule": "RAC1P == 2",
     "age_rule": "AGEP >= 18",
+    "phase2_sex_rule": "SEX == 2 for Black women; SEX == 1 for descriptive Black men benchmark",
     "sex_values": ["Female", "Male"],
     "marital_values": ["Divorced", "Married", "Never married", "Separated", "Widowed"],
     "pwgtp_positive": true

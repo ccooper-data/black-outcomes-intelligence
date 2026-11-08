@@ -18,10 +18,14 @@ Every metric carries `unweighted_n` and `weighted_denominator`. A value is marke
 - weighted denominator is nonpositive;
 - relative standard error (`SE / abs(estimate)`) exceeds 30% or cannot be calculated.
 
-Suppressed point estimates remain in the private analytical artifact for auditability, but the dashboard renders “Suppressed.” These thresholds are a project publication policy, not a Census endorsement. See [docs/statistical_methodology.md](docs/statistical_methodology.md).
+Suppressed point estimates remain only in private Gold for auditability. Public S3 and repository snapshots blank the estimate, standard error, confidence limits, and RSE before the dashboard renders “Suppressed.” These thresholds are a project publication policy, not a Census endorsement. See [docs/statistical_methodology.md](docs/statistical_methodology.md).
 
 ## Reconciliation and testing
 
 `src.transform.reconcile` compares every normalized Bronze and Silver row with a streaming SHA-256 fingerprint, rebuilds Gold from Silver, and compares Gold with published output using exact schema/shape checks and `1e-12` numeric tolerance. Streaming keeps the national microdata check within a standard GitHub runner's memory. CI runs this end-to-end on deterministic synthetic records, including deliberate drift-failure tests. The production workflow independently downloads the authoritative Bronze ZIP, Silver Parquet, and Gold CSVs, builds the dashboard candidate, and invokes the full source-to-dashboard reconciliation. Its `publish` input defaults to `false`, allowing the real AWS-backed path to be exercised without writing the published prefix; an explicit `publish=true` run is required to write and byte-verify objects. Raw microdata are never committed.
 
 Run `pytest -q` locally. Building and publishing AWS artifacts is manual and uses existing S3 only; this Phase 1 change creates no infrastructure and runs no deployment automatically.
+
+## Phase 2: Black women
+
+Phase 2 adds a reconciled `intersectional.csv` mart and dashboard explorer for Black women by state and age band, with Black men as a descriptive benchmark. Population, marriage, education, employment, and income retain the same replicate-weight uncertainty, denominator, and suppression contract. See [docs/phase2_black_women.md](docs/phase2_black_women.md).

@@ -39,20 +39,11 @@ jobs:
           mkdir -p /tmp/gold /tmp/published
           aws s3 cp "s3://$BUCKET/bronze/acs_pums/year=${{ inputs.year }}/release=1-year/csv_pus.zip" /tmp/source.zip
           aws s3 cp "s3://$BUCKET/silver/acs_pums_person/year=${{ inputs.year }}/data/part-00000.parquet" /tmp/silver.parquet
-          for name in national.csv states.csv manifest.json; do
+          for name in national.csv states.csv intersectional.csv manifest.json; do
             aws s3 cp "s3://$BUCKET/gold/black_outcomes/year=${{ inputs.year }}/$name" "/tmp/gold/$name"
           done
       - name: Build candidate dashboard artifacts
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import pandas as pd
-          source = Path('/tmp/gold')
-          target = Path('/tmp/published')
-          for name in ('national.csv', 'states.csv'):
-              pd.read_csv(source / name).to_csv(target / name, index=False)
-          (target / 'manifest.json').write_bytes((source / 'manifest.json').read_bytes())
-          PY
+        run: python -m src.transform.publish_dashboard --gold-dir /tmp/gold --output-dir /tmp/published
       - name: Enforce full source-to-dashboard reconciliation
         run: |
           python -m src.transform.reconcile \
@@ -67,14 +58,14 @@ jobs:
         if: ${{ inputs.publish }}
         run: |
           set -euo pipefail
-          for name in national.csv states.csv manifest.json; do
+          for name in national.csv states.csv intersectional.csv manifest.json; do
             aws s3 cp "/tmp/published/$name" "s3://$BUCKET/published/year=${{ inputs.year }}/$name"
           done
       - name: Verify published objects are byte-identical to reconciled candidates
         if: ${{ inputs.publish }}
         run: |
           set -euo pipefail
-          for name in national.csv states.csv manifest.json; do
+          for name in national.csv states.csv intersectional.csv manifest.json; do
             aws s3 cp "s3://$BUCKET/published/year=${{ inputs.year }}/$name" "/tmp/verify-$name"
             cmp "/tmp/published/$name" "/tmp/verify-$name"
           done

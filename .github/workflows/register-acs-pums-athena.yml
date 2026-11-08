@@ -35,7 +35,7 @@ jobs:
         run: |
           python - <<'PY'
           import json, os
-          names = ['serialno','sporder','state','puma','agep','rac1p','mar','schl','pincp','esr','pwgtp'] + [f'pwgtp{i}' for i in range(1,81)]
+          names = ['serialno','sporder','state','puma','agep','sex','rac1p','mar','schl','pincp','esr','pwgtp'] + [f'pwgtp{i}' for i in range(1,81)]
           table = {
               'Name': os.environ['TABLE'], 'TableType': 'EXTERNAL_TABLE',
               'Parameters': {'classification': 'parquet', 'EXTERNAL': 'TRUE'},

@@ -20,7 +20,7 @@ DEFAULT_URL_TEMPLATE = "https://www2.census.gov/programs-surveys/acs/data/pums/{
 # The 2024 FTP person file uses STATE (not the API geography alias ST).
 PERSON_REPLICATE_WEIGHTS = tuple(f"PWGTP{i}" for i in range(1, 81))
 REQUIRED_COLUMNS = {
-    "SERIALNO", "SPORDER", "STATE", "PUMA", "AGEP", "RAC1P", "MAR",
+    "SERIALNO", "SPORDER", "STATE", "PUMA", "AGEP", "SEX", "RAC1P", "MAR",
     "SCHL", "PINCP", "ESR", "PWGTP", *PERSON_REPLICATE_WEIGHTS,
 }
 
