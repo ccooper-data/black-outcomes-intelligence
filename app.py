@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 
 import pandas as pd
 import streamlit as st
@@ -44,7 +45,18 @@ def load_data():
             raise ValueError("Published longitudinal trend snapshot failed validation.")
         if len(contrasts) != 1092 or set(contrasts["survey_year"]) != {2022, 2023, 2024}:
             raise ValueError("Published longitudinal contrast snapshot failed validation.")
-    return national, states, intersectional, trends, contrasts
+    model_metrics_path = DATA_DIR / "model_metrics.csv"
+    model_calibration_path = DATA_DIR / "model_calibration.csv"
+    model_card_path = DATA_DIR / "model_card.json"
+    model_metrics = pd.read_csv(model_metrics_path) if model_metrics_path.exists() else pd.DataFrame()
+    model_calibration = pd.read_csv(model_calibration_path) if model_calibration_path.exists() else pd.DataFrame()
+    model_card = json.loads(model_card_path.read_text()) if model_card_path.exists() else {}
+    if not model_metrics.empty:
+        if set(model_metrics["evaluation_year"]) != {2024} or set(model_metrics["metric"]) != {"brier_score", "log_loss"}:
+            raise ValueError("Published Phase 4 model metrics failed validation.")
+        if model_calibration.empty or model_card.get("person_level_predictions_published") is not False:
+            raise ValueError("Published Phase 4 aggregate-only contract failed validation.")
+    return national, states, intersectional, trends, contrasts, model_metrics, model_calibration, model_card
 
 
 def format_value(value, value_type):
@@ -60,7 +72,7 @@ st.title("Black Outcomes Intelligence")
 st.caption("2022–2024 American Community Survey PUMS · weighted estimates for Black adults age 18+")
 
 try:
-    national, states, intersectional, trends, contrasts = load_data()
+    national, states, intersectional, trends, contrasts, model_metrics, model_calibration, model_card = load_data()
 except Exception as exc:
     st.error("The validated dashboard snapshot is unavailable.")
     st.exception(exc)
@@ -237,6 +249,42 @@ else:
             f"{trend_prefix}_women_unweighted_n", f"{trend_prefix}_men_unweighted_n",
         ]], use_container_width=True, hide_index=True)
 
+st.divider()
+st.subheader("Phase 4: year-held-out model validation")
+if model_metrics.empty:
+    st.info("The Phase 4 aggregate model snapshot has not yet been published.")
+else:
+    st.caption(
+        "Models train on 2022–2023 and are evaluated on untouched 2024 records. "
+        "These are population-level predictive diagnostics, not individual scores or causal effects."
+    )
+    overall = model_metrics.loc[
+        (model_metrics["group_type"] == "overall")
+        & ~model_metrics["value_is_suppressed"].astype(bool)
+    ].copy()
+    if overall.empty:
+        st.warning("Overall model metrics are suppressed under the published stability rules.")
+    else:
+        comparison = overall.pivot(index="model", columns="metric", values="value_estimate")
+        comparison.index = comparison.index.map({
+            "weighted_prevalence_baseline": "Weighted prevalence baseline",
+            "survey_weighted_logistic": "Survey-weighted logistic",
+        })
+        st.dataframe(comparison.rename(columns={"brier_score": "Brier score", "log_loss": "Log loss"}), use_container_width=True)
+        st.caption("Lower Brier score and log loss indicate better held-out predictive accuracy.")
+    visible_calibration = model_calibration.loc[
+        ~model_calibration["observed_rate_is_suppressed"].astype(bool)
+        & ~model_calibration["mean_prediction_is_suppressed"].astype(bool)
+    ].sort_values("calibration_bin")
+    if not visible_calibration.empty:
+        chart = visible_calibration.set_index("calibration_bin")[[
+            "mean_prediction_estimate", "observed_rate_estimate"
+        ]].rename(columns={"mean_prediction_estimate": "Mean prediction", "observed_rate_estimate": "Observed married rate"})
+        st.markdown("#### 2024 calibration")
+        st.line_chart(chart, x_label="Prediction decile", y_label="Rate")
+    with st.expander("Model card"):
+        st.json(model_card)
+
 st.caption("Dashboard data are a versioned snapshot of aggregated Gold outputs; the public application requires no AWS credentials and has no access to Census microdata.")
 with st.expander("Methodology"):
-    st.markdown("Estimates use 2022–2024 ACS 1-Year PUMS person records, restricted to RAC1P=2 (Black alone) and age 18+. SEX=2 identifies Black women and SEX=1 identifies the Black men benchmark. Employment includes ESR codes 1, 2, 4, and 5 among records in the ESR labor-force universe. Point estimates use PWGTP. Standard errors use all 80 PWGTP replicate weights and the Census ACS SDR factor 4/80; intervals are estimate ± 1.96 SE (bounded to [0,1] for rates). Direct annual contrasts subtract the two groups' estimates and their corresponding replicate estimates. Every metric publishes its unweighted sample size and weighted denominator. Estimates are suppressed when unweighted n < 30, the denominator is nonpositive, or relative standard error exceeds 30%. Cross-year changes are descriptive and are not presented as significance tests. These are survey estimates, not causal claims.")
+    st.markdown("Estimates use 2022–2024 ACS 1-Year PUMS person records, restricted to RAC1P=2 (Black alone) and age 18+. SEX=2 identifies Black women and SEX=1 identifies the Black men benchmark. Employment includes ESR codes 1, 2, 4, and 5 among records in the ESR labor-force universe. Point estimates use PWGTP. Standard errors use all 80 PWGTP replicate weights and the Census ACS SDR factor 4/80; intervals are estimate ± 1.96 SE (bounded to [0,1] for rates). Direct annual contrasts subtract the two groups' estimates and their corresponding replicate estimates. Phase 4 fits a survey-weighted logistic benchmark on 2022–2023 and evaluates fixed predictions on 2024; Brier score, log loss, and calibration uncertainty use the 80 2024 replicate weights. Every published metric retains its unweighted sample size and weighted denominator. Estimates are suppressed when unweighted n < 30, the denominator is nonpositive, or relative standard error exceeds 30%. Cross-year changes and model coefficients are descriptive and are not causal claims. No person-level predictions are published.")

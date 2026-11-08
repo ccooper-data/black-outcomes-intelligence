@@ -35,3 +35,7 @@ Phase 2 adds a reconciled `intersectional.csv` mart and dashboard explorer for B
 ## Phase 3: longitudinal trends
 
 Phase 3 adds 2022–2024 `trends.csv` and direct annual women-minus-men `contrasts.csv`. Each contrast is recomputed from the corresponding 80 replicate estimates; it is not formed by combining published standard errors. Cross-year changes remain descriptive because the pipeline does not have a Census-provided cross-year covariance design. New workflows build, reconcile, optionally publish, byte-verify, and snapshot these aggregates without provisioning infrastructure. See [docs/phase3_longitudinal.md](docs/phase3_longitudinal.md).
+
+## Phase 4: survey-aware population modeling
+
+Phase 4 fits a transparent survey-weighted marriage benchmark on 2022–2023 and evaluates it only on the untouched 2024 release. Brier score, log loss, subgroup diagnostics, and calibration use all 80 holdout replicate weights for sampling standard errors and 95% confidence intervals. Public outputs are aggregate and suppression-safe; person-level predictions are never published. The model is descriptive and predictive, not causal or suitable for individual decisions. See [docs/phase4_modeling.md](docs/phase4_modeling.md).
