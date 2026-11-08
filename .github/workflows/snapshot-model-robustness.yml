@@ -1,0 +1,64 @@
+name: Snapshot Phase 5 Model Robustness
+
+on: workflow_dispatch
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-24.04
+    env:
+      BUCKET: black-outcomes-intelligence-dev-4623dd8370ffd332f292468c61
+    steps:
+      - uses: actions/checkout@v7
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::780976819607:role/black-outcomes-github-deploy
+          aws-region: us-east-2
+      - name: Copy aggregate robustness artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p data/published
+          for name in robustness_metrics.csv robustness_comparisons.csv robustness_calibration.csv robustness_features.csv robustness_card.json; do
+            aws s3 cp "s3://$BUCKET/published/model_robustness/years=2022-2024/$name" "data/published/$name"
+          done
+      - name: Verify aggregate-only suppression-safe contract
+        run: |
+          python - <<'PY'
+          import csv, json
+          def rows(name):
+              with open(f'data/published/{name}', newline='') as handle:
+                  return list(csv.DictReader(handle))
+          metrics = rows('robustness_metrics.csv')
+          comparisons = rows('robustness_comparisons.csv')
+          calibration = rows('robustness_calibration.csv')
+          features = rows('robustness_features.csv')
+          with open('data/published/robustness_card.json') as handle:
+              card = json.load(handle)
+          assert {row['model'] for row in metrics} == {'weighted_prevalence_baseline','survey_weighted_logistic','survey_weighted_xgboost'}
+          assert {row['metric'] for row in metrics} == {'brier_score','log_loss'}
+          assert {'state','sex_age'} <= {row['group_type'] for row in metrics}
+          assert len(calibration) == 20 and 1 <= len(features) <= 30
+          assert card['automatic_promotion'] is False
+          assert card['person_level_predictions_published'] is False
+          for frame in (metrics, comparisons, calibration):
+              columns = set(frame[0])
+              for flag in [column for column in columns if column.endswith('_is_suppressed')]:
+                  prefix = flag.removesuffix('_is_suppressed')
+                  for row in frame:
+                      if row[flag].strip().lower() == 'true':
+                          for field in ('estimate','standard_error','ci95_lower','ci95_upper','relative_standard_error'):
+                              column = f'{prefix}_{field}'
+                              if column in columns:
+                                  assert row[column].strip() == ''
+          PY
+      - name: Commit dashboard snapshot
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add data/published/robustness_*.csv data/published/robustness_card.json
+          git diff --cached --quiet && exit 0
+          git commit -m "data: snapshot Phase 5 aggregate robustness evidence"
+          git push

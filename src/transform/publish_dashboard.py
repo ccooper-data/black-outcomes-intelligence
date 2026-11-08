@@ -40,8 +40,15 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--longitudinal", action="store_true")
     parser.add_argument("--modeling", action="store_true")
+    parser.add_argument("--robustness", action="store_true")
     args = parser.parse_args()
-    if args.modeling:
+    if args.robustness:
+        names = (
+            "robustness_metrics.csv", "robustness_comparisons.csv",
+            "robustness_calibration.csv", "robustness_features.csv",
+        )
+        metadata_name = "robustness_card.json"
+    elif args.modeling:
         names = ("model_metrics.csv", "model_calibration.csv")
         metadata_name = "model_card.json"
     elif args.longitudinal:

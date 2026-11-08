@@ -39,3 +39,7 @@ Phase 3 adds 2022–2024 `trends.csv` and direct annual women-minus-men `contras
 ## Phase 4: survey-aware population modeling
 
 Phase 4 fits a transparent survey-weighted marriage benchmark on 2022–2023 and evaluates it only on the untouched 2024 release. Brier score, log loss, subgroup diagnostics, and calibration use all 80 holdout replicate weights for sampling standard errors and 95% confidence intervals. Public outputs are aggregate and suppression-safe; person-level predictions are never published. The model is descriptive and predictive, not causal or suitable for individual decisions. See [docs/phase4_modeling.md](docs/phase4_modeling.md).
+
+## Phase 5: nonlinear challenger robustness
+
+Phase 5 evaluates an XGBoost challenger against the Phase 4 logistic model on the same untouched 2024 release. Paired per-record loss differences are recomputed with all 80 replicate weights, and stability is reported overall, by state, sex, age, and sex × age. Aggregate gain importance is descriptive only; SHAP and automatic promotion are deliberately excluded pending real held-out review. See [docs/phase5_model_robustness.md](docs/phase5_model_robustness.md).

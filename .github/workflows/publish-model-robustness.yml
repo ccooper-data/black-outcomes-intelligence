@@ -1,0 +1,83 @@
+name: Publish Phase 5 Model Robustness
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Write reconciled aggregate robustness artifacts"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  robustness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      BUCKET: black-outcomes-intelligence-dev-4623dd8370ffd332f292468c61
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: {python-version: "3.12"}
+      - run: pip install -r requirements.txt
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::780976819607:role/black-outcomes-github-deploy
+          aws-region: us-east-2
+      - name: Download authoritative source and Silver stages
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/gold-robustness /tmp/published-robustness
+          for year in 2022 2023 2024; do
+            aws s3 cp "s3://$BUCKET/bronze/acs_pums/year=$year/release=1-year/csv_pus.zip" "/tmp/source-$year.zip"
+            aws s3 cp "s3://$BUCKET/silver/acs_pums_person/year=$year/data/part-00000.parquet" "/tmp/silver-$year.parquet"
+          done
+      - name: Build aggregate challenger evidence
+        run: |
+          python -m src.transform.build_robustness \
+            --silver 2022=/tmp/silver-2022.parquet \
+            --silver 2023=/tmp/silver-2023.parquet \
+            --silver 2024=/tmp/silver-2024.parquet \
+            --output-dir /tmp/gold-robustness
+          python -m src.transform.publish_dashboard \
+            --gold-dir /tmp/gold-robustness --output-dir /tmp/published-robustness --robustness
+      - name: Enforce source-to-challenger-to-publication reconciliation
+        run: |
+          python -m src.transform.reconcile_robustness \
+            --source 2022=/tmp/source-2022.zip --source 2023=/tmp/source-2023.zip --source 2024=/tmp/source-2024.zip \
+            --silver 2022=/tmp/silver-2022.parquet --silver 2023=/tmp/silver-2023.parquet --silver 2024=/tmp/silver-2024.parquet \
+            --gold-dir /tmp/gold-robustness --published-dir /tmp/published-robustness \
+            --report /tmp/robustness-reconciliation.json
+          cat /tmp/robustness-reconciliation.json
+      - name: Retain reconciled aggregate evidence for review
+        uses: actions/upload-artifact@v7
+        with:
+          name: phase-5-robustness-review-${{ github.run_id }}
+          path: |
+            /tmp/published-robustness/*
+            /tmp/robustness-reconciliation.json
+          retention-days: 7
+          if-no-files-found: error
+      - name: Publish aggregate artifacts only after reconciliation
+        if: ${{ inputs.publish }}
+        run: |
+          set -euo pipefail
+          for name in robustness_metrics.csv robustness_comparisons.csv robustness_calibration.csv robustness_features.csv robustness_card.json; do
+            aws s3 cp "/tmp/gold-robustness/$name" "s3://$BUCKET/gold/model_robustness/years=2022-2024/$name"
+            aws s3 cp "/tmp/published-robustness/$name" "s3://$BUCKET/published/model_robustness/years=2022-2024/$name"
+          done
+      - name: Verify published objects byte-for-byte
+        if: ${{ inputs.publish }}
+        run: |
+          set -euo pipefail
+          for name in robustness_metrics.csv robustness_comparisons.csv robustness_calibration.csv robustness_features.csv robustness_card.json; do
+            aws s3 cp "s3://$BUCKET/published/model_robustness/years=2022-2024/$name" "/tmp/verify-$name"
+            cmp "/tmp/published-robustness/$name" "/tmp/verify-$name"
+          done
+      - name: Record dry-run result
+        if: ${{ !inputs.publish }}
+        run: echo "Phase 5 reconciliation passed; aggregate review evidence was retained, and no Gold or published S3 objects were written."

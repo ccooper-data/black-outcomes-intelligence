@@ -56,7 +56,32 @@ def load_data():
             raise ValueError("Published Phase 4 model metrics failed validation.")
         if model_calibration.empty or model_card.get("person_level_predictions_published") is not False:
             raise ValueError("Published Phase 4 aggregate-only contract failed validation.")
-    return national, states, intersectional, trends, contrasts, model_metrics, model_calibration, model_card
+    robustness_names = (
+        "robustness_metrics.csv", "robustness_comparisons.csv",
+        "robustness_calibration.csv", "robustness_features.csv",
+    )
+    robustness_frames = [
+        pd.read_csv(DATA_DIR / name) if (DATA_DIR / name).exists() else pd.DataFrame()
+        for name in robustness_names
+    ]
+    robustness_card_path = DATA_DIR / "robustness_card.json"
+    robustness_card = json.loads(robustness_card_path.read_text()) if robustness_card_path.exists() else {}
+    robustness_metrics, robustness_comparisons, robustness_calibration, robustness_features = robustness_frames
+    if not robustness_metrics.empty:
+        if set(robustness_metrics["model"]) != {
+            "weighted_prevalence_baseline", "survey_weighted_logistic", "survey_weighted_xgboost"
+        } or set(robustness_metrics["evaluation_year"]) != {2024}:
+            raise ValueError("Published Phase 5 robustness metrics failed validation.")
+        if robustness_comparisons.empty or robustness_calibration.empty or robustness_features.empty:
+            raise ValueError("Published Phase 5 evidence package is incomplete.")
+        if robustness_card.get("automatic_promotion") is not False or robustness_card.get("person_level_predictions_published") is not False:
+            raise ValueError("Published Phase 5 governance contract failed validation.")
+    return (
+        national, states, intersectional, trends, contrasts,
+        model_metrics, model_calibration, model_card,
+        robustness_metrics, robustness_comparisons, robustness_calibration,
+        robustness_features, robustness_card,
+    )
 
 
 def format_value(value, value_type):
@@ -72,7 +97,12 @@ st.title("Black Outcomes Intelligence")
 st.caption("2022–2024 American Community Survey PUMS · weighted estimates for Black adults age 18+")
 
 try:
-    national, states, intersectional, trends, contrasts, model_metrics, model_calibration, model_card = load_data()
+    (
+        national, states, intersectional, trends, contrasts,
+        model_metrics, model_calibration, model_card,
+        robustness_metrics, robustness_comparisons, robustness_calibration,
+        robustness_features, robustness_card,
+    ) = load_data()
 except Exception as exc:
     st.error("The validated dashboard snapshot is unavailable.")
     st.exception(exc)
@@ -285,6 +315,51 @@ else:
     with st.expander("Model card"):
         st.json(model_card)
 
+st.divider()
+st.subheader("Phase 5: nonlinear challenger robustness")
+if robustness_metrics.empty:
+    st.info("The Phase 5 aggregate robustness snapshot has not yet been published.")
+else:
+    st.caption(
+        "XGBoost is evaluated against the transparent logistic model on the same untouched 2024 records. "
+        "Positive paired improvement means lower loss for XGBoost. No model is promoted automatically."
+    )
+    overall_challenger = robustness_comparisons.loc[
+        (robustness_comparisons["reference_model"] == "survey_weighted_logistic")
+        & (robustness_comparisons["challenger_model"] == "survey_weighted_xgboost")
+        & (robustness_comparisons["group_type"] == "overall")
+        & ~robustness_comparisons["improvement_is_suppressed"].astype(bool)
+    ].copy()
+    if robustness_card.get("promotion_gate_passed"):
+        st.success("The preregistered overall paired-improvement gate passed. Promotion still requires human review.")
+    else:
+        st.warning("The preregistered overall paired-improvement gate did not pass; the challenger remains experimental.")
+    if not overall_challenger.empty:
+        st.dataframe(overall_challenger[[
+            "metric", "improvement_estimate", "improvement_standard_error",
+            "improvement_ci95_lower", "improvement_ci95_upper",
+            "improvement_unweighted_n", "improvement_weighted_denominator",
+        ]], use_container_width=True, hide_index=True)
+    dimension = st.selectbox("Robustness subgroup dimension", ["sex", "age_band", "state", "sex_age"])
+    available_groups = sorted(robustness_comparisons.loc[robustness_comparisons["group_type"] == dimension, "group"].astype(str).unique())
+    selected_group = st.selectbox("Robustness subgroup", available_groups)
+    subgroup = robustness_comparisons.loc[
+        (robustness_comparisons["group_type"] == dimension)
+        & (robustness_comparisons["group"].astype(str) == selected_group)
+        & (robustness_comparisons["reference_model"] == "survey_weighted_logistic")
+        & (robustness_comparisons["challenger_model"] == "survey_weighted_xgboost")
+    ]
+    st.dataframe(subgroup[[
+        "metric", "improvement_estimate", "improvement_ci95_lower", "improvement_ci95_upper",
+        "improvement_unweighted_n", "improvement_weighted_denominator", "improvement_is_suppressed",
+    ]], use_container_width=True, hide_index=True)
+    visible_features = robustness_features.nlargest(15, "gain_importance").sort_values("gain_importance")
+    st.markdown("#### Aggregate model gain importance")
+    st.bar_chart(visible_features.set_index("feature")[["gain_importance"]], horizontal=True)
+    st.caption("Gain importance describes the fitted model, not causality or an individual explanation. SHAP is not published in this phase.")
+    with st.expander("Phase 5 model card"):
+        st.json(robustness_card)
+
 st.caption("Dashboard data are a versioned snapshot of aggregated Gold outputs; the public application requires no AWS credentials and has no access to Census microdata.")
 with st.expander("Methodology"):
-    st.markdown("Estimates use 2022–2024 ACS 1-Year PUMS person records, restricted to RAC1P=2 (Black alone) and age 18+. SEX=2 identifies Black women and SEX=1 identifies the Black men benchmark. Employment includes ESR codes 1, 2, 4, and 5 among records in the ESR labor-force universe. Point estimates use PWGTP. Standard errors use all 80 PWGTP replicate weights and the Census ACS SDR factor 4/80; intervals are estimate ± 1.96 SE (bounded to [0,1] for rates). Direct annual contrasts subtract the two groups' estimates and their corresponding replicate estimates. Phase 4 fits a survey-weighted logistic benchmark on 2022–2023 and evaluates fixed predictions on 2024; Brier score, log loss, and calibration uncertainty use the 80 2024 replicate weights. Every published metric retains its unweighted sample size and weighted denominator. Estimates are suppressed when unweighted n < 30, the denominator is nonpositive, or relative standard error exceeds 30%. Cross-year changes and model coefficients are descriptive and are not causal claims. No person-level predictions are published.")
+    st.markdown("Estimates use 2022–2024 ACS 1-Year PUMS person records, restricted to RAC1P=2 (Black alone) and age 18+. SEX=2 identifies Black women and SEX=1 identifies the Black men benchmark. Employment includes ESR codes 1, 2, 4, and 5 among records in the ESR labor-force universe. Point estimates use PWGTP. Standard errors use all 80 PWGTP replicate weights and the Census ACS SDR factor 4/80; intervals are estimate ± 1.96 SE (bounded to [0,1] for rates). Direct annual contrasts subtract the two groups' estimates and their corresponding replicate estimates. Phase 4 fits a survey-weighted logistic benchmark on 2022–2023 and evaluates fixed predictions on 2024. Phase 5 evaluates a fixed XGBoost challenger on the same 2024 records and computes paired replicate-weight loss improvements as logistic loss minus challenger loss. Performance intervals condition on the fitted models and do not include model-refitting uncertainty. Every published metric retains its unweighted sample size and weighted denominator. Estimates are suppressed when unweighted n < 30, the denominator is nonpositive, or relative standard error exceeds 30%. Cross-year changes, coefficients, and feature importance are descriptive and are not causal claims. No person-level predictions are published.")
