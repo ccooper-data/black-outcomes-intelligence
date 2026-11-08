@@ -54,3 +54,4 @@ jobs:
           grep -q 'ASK_DATA_ENABLED' app.py
           ! grep -R --exclude=ci.yml -E -q 'sk-[A-Za-z0-9_-]{16,}' .
           ! grep -q 'data/bronze\|data/silver\|/tmp/source\|/tmp/silver' src/ask_data.py
+          grep -Fxq '.streamlit/secrets.toml' .gitignore
