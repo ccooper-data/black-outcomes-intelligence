@@ -60,7 +60,9 @@ def _csv_value(value: object) -> object:
     if isinstance(value, numbers.Integral):
         return str(int(value))
     if isinstance(value, numbers.Real):
-        return format(float(value), ".17g")
+        # Fifteen significant digits collapse parser-level, last-bit variation
+        # while retaining far more precision than any published display value.
+        return format(float(value), ".15g")
     return str(value)
 
 

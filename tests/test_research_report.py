@@ -64,8 +64,10 @@ def test_report_manifest_hashes_match_artifacts(tmp_path):
 
 
 def test_csv_scalar_formatting_is_explicit_and_stable():
-    assert _csv_value(5.987260397910911e-55) == "5.9872603979109107e-55"
-    assert _csv_value(4.0220083010041755e-18) == "4.0220083010041755e-18"
+    assert _csv_value(5.987260397910911e-55) == "5.98726039791091e-55"
+    assert _csv_value(5.9872603979109114e-55) == "5.98726039791091e-55"
+    assert _csv_value(4.0220083010041755e-18) == "4.02200830100418e-18"
+    assert _csv_value(4.0220083010041763e-18) == "4.02200830100418e-18"
     assert _csv_value(float("nan")) == ""
     assert _csv_value(True) == "True"
 
