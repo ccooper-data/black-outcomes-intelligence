@@ -12,6 +12,8 @@ Suppressed direct comparisons retain flags, reasons, and denominator metadata wh
 
 The report is descriptive, not a predictive-validation artifact. The 2024 ACS release was already used for Phase 4 and Phase 5 evaluation, so Phase 8 does not describe it as a new or untouched model holdout.
 
+The executive summary and manifest report how many publishable contrasts carry the unstable-RSE marker and how many of those also meet the FDR rule. State tables display the marker beside the effect estimate, interval, and adjusted evidence so significance cannot be read as a substitute for precision.
+
 ## Reproducibility and release gate
 
 Every artifact is generated twice and compared byte-for-byte. CSV scalar formatting and line endings are controlled by the standard-library writer rather than pandas' version-dependent defaults. Floating-point appendix values use a canonical 15-significant-digit representation, which removes parser-level last-bit differences while retaining substantially more precision than the displayed report. The manifest records SHA-256 hashes for both source snapshots and all report artifacts. The manual workflow retains the review package for seven days and has no cloud credentials or publication step.

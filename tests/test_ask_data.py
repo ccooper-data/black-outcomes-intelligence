@@ -79,6 +79,12 @@ def test_inference_questions_route_to_age_adjusted_evidence():
     assert selected[0].source == "inference.csv"
 
 
+def test_inference_evidence_exposes_unstable_contrast_rse_markers():
+    evidence = build_evidence_store(__import__("pathlib").Path("data/published"))
+    inference = [item for item in evidence if item.source == "inference.csv"]
+    assert sum("contrast RSE marker: unstable" in item.text for item in inference) == 96
+
+
 def test_api_request_is_not_stored_and_uses_aggregate_packet():
     evidence = (
         Evidence("national.csv", "married_rate", "2024 | National | Marriage rate: 32.0% [public aggregate].", "2024 national marriage rate", 0.32, False),

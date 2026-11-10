@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+import math
 from pathlib import Path
 import re
 from typing import Iterable, Sequence
@@ -160,10 +161,20 @@ def _inference_evidence(frame: pd.DataFrame) -> list[Evidence]:
                 if bool(row["difference_fdr_significant"])
                 else "not statistically distinguishable after FDR control"
             )
+            contrast_rse = float(row["difference_relative_standard_error"])
+            rse_unstable = bool(row.get(
+                "difference_rse_unstable",
+                not math.isfinite(contrast_rse) or contrast_rse > 0.30,
+            ))
+            rse_note = (
+                "contrast RSE marker: unstable (above 30% or undefined); "
+                if rse_unstable
+                else "contrast RSE marker: within 30%; "
+            )
             detail = (
                 f"{label} difference: {_format(estimate, kind)} "
                 f"(95% CI {_format(low, kind)}–{_format(high, kind)}); {q_text}; "
-                f"{conclusion}; minimum component unweighted n {n:,}; "
+                f"{conclusion}; {rse_note}minimum component unweighted n {n:,}; "
                 f"minimum component weighted denominator {denominator:,.0f}."
             )
         text = f"{scope} | {detail} Source: inference.csv."

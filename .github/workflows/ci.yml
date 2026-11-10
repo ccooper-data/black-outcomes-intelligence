@@ -60,6 +60,7 @@ jobs:
           set -euo pipefail
           grep -q '_benjamini_hochberg' src/transform/build_inference.py
           grep -q 'women.replicates - men.replicates' src/transform/build_inference.py
+          grep -q 'difference_rse_unstable' .github/workflows/snapshot-research-inference.yml
           grep -q 'reconcile_inference' .github/workflows/publish-research-inference.yml
           grep -q 'if:.*inputs.publish' .github/workflows/publish-research-inference.yml
           if grep -R --exclude=ci.yml -Eq 'aws s3 sync.*research_inference.*--delete|aws s3 sync.*--delete.*research_inference' .github/workflows; then

@@ -18,7 +18,7 @@ Every component estimate carries `unweighted_n` and `weighted_denominator`. A co
 - weighted denominator is nonpositive;
 - relative standard error (`SE / abs(estimate)`) exceeds 30% or cannot be calculated.
 
-Suppressed point estimates remain only in private Gold for auditability. Public S3 and repository snapshots blank the estimate, standard error, confidence limits, and RSE before the dashboard renders “Suppressed.” Signed differences are suppressed when a component fails its rules or when contrast uncertainty is nonfinite, but not merely because `SE / abs(difference)` exceeds 30% or is undefined near zero. Contrast uncertainty remains visible through its SE, 95% confidence interval, and adjusted test. These thresholds are a project publication policy, not a Census endorsement. See [docs/statistical_methodology.md](docs/statistical_methodology.md).
+Suppressed point estimates remain only in private Gold for auditability. Public S3 and repository snapshots blank the estimate, standard error, confidence limits, and RSE before the dashboard renders “Suppressed.” Signed differences are suppressed when a component fails its rules or when contrast uncertainty is nonfinite, but not merely because `SE / abs(difference)` exceeds 30% or is undefined near zero. Publishable contrasts that exceed that threshold carry a visible unstable-RSE marker; contrast uncertainty remains visible through its SE, 95% confidence interval, and adjusted test. These thresholds are a project publication policy, not a Census endorsement. See [docs/statistical_methodology.md](docs/statistical_methodology.md).
 
 ## Reconciliation and testing
 

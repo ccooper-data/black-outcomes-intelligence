@@ -29,6 +29,11 @@ def load_report_package(report_dir: Path) -> tuple[dict, dict[str, bytes]]:
         or manifest.get("causal_interpretation") is not False
         or manifest.get("rows") != 208
         or manifest.get("publishable_rows") + manifest.get("suppressed_rows") != 208
+        or manifest.get("unstable_contrast_rse_rows", 0) < 0
+        or manifest.get("unstable_contrast_rse_rows", 0) > manifest.get("publishable_rows", 0)
+        or manifest.get("unstable_contrast_rse_fdr_significant_rows", 0) < 0
+        or manifest.get("unstable_contrast_rse_fdr_significant_rows", 0)
+        > manifest.get("unstable_contrast_rse_rows", 0)
     ):
         raise ValueError("Published Phase 8 report manifest failed its release contract.")
     data: dict[str, bytes] = {}

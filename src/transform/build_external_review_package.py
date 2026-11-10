@@ -108,10 +108,14 @@ def validate_public_release(inference_path: Path, inference_manifest_path: Path,
     high_contrast_rse = visible["difference_relative_standard_error"].gt(0.30) | ~np.isfinite(
         visible["difference_relative_standard_error"]
     )
+    marker_present = "difference_rse_unstable" in visible
+    marker_matches = not marker_present or visible["difference_rse_unstable"].astype(str).str.lower().eq(
+        high_contrast_rse.astype(str).str.lower()
+    ).all()
     checks.append(_check(
         "component_and_contrast_suppression_policy",
-        components_stable and int(high_contrast_rse.sum()) == 96,
-        f"all visible components pass n/RSE rules; {int(high_contrast_rse.sum())} visible signed contrasts exceed 30% RSE or have undefined RSE and remain visible by design",
+        components_stable and int(high_contrast_rse.sum()) == 96 and marker_matches,
+        f"all visible components pass n/RSE rules; {int(high_contrast_rse.sum())} visible signed contrasts exceed 30% RSE or have undefined RSE and remain visible by design; marker present={marker_present}; present markers match={marker_matches}",
     ))
     rate = visible["metric"].str.endswith("_rate")
     expected_low = visible["difference_estimate"] - Z_95 * visible["difference_standard_error"]
