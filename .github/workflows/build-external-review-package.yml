@@ -1,0 +1,46 @@
+name: Build Phase 9A External Review Package
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-review-package:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: {python-version: '3.12'}
+      - run: pip install -r requirements.txt
+      - name: Build twice and reconcile exact bytes
+        run: |
+          set -euo pipefail
+          for output in /tmp/phase-9a-review-a /tmp/phase-9a-review-b; do
+            python -m src.transform.build_external_review_package \
+              --inference data/published/inference.csv \
+              --inference-manifest data/published/inference_manifest.json \
+              --report-manifest data/published/research_report/2024/research_findings_manifest.json \
+              --output-dir "$output"
+          done
+          diff -qr /tmp/phase-9a-review-a /tmp/phase-9a-review-b
+      - name: Enforce pending-review claims contract
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('/tmp/phase-9a-review-a')
+          manifest = json.loads((root / 'package_manifest.json').read_text())
+          findings = json.loads((root / 'reviewer_findings.json').read_text())
+          assert manifest['status'] == 'external_review_pending'
+          assert manifest['independent_validation_claimed'] is False
+          assert findings['independent_validation_approved'] is False
+          PY
+      - name: Retain reviewer package
+        uses: actions/upload-artifact@v7
+        with:
+          name: phase-9a-external-review-${{ github.run_id }}
+          path: /tmp/phase-9a-review-a/
+          retention-days: 30
+          if-no-files-found: error

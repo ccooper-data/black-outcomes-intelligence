@@ -77,3 +77,13 @@ jobs:
           grep -q 'git show "HEAD:$target/$name" | cmp' .github/workflows/build-research-report.yml
           grep -q 'data/published/research_report/2024' .github/workflows/build-research-report.yml
           ! grep -q 'configure-aws-credentials\|aws s3\|OPENAI_API_KEY' .github/workflows/build-research-report.yml
+      - name: Verify Phase 9A independent-review safeguards
+        run: |
+          set -euo pipefail
+          grep -q 'build_external_review_package' .github/workflows/build-external-review-package.yml
+          grep -q 'diff -qr /tmp/phase-9a-review-a /tmp/phase-9a-review-b' .github/workflows/build-external-review-package.yml
+          grep -q 'actions/upload-artifact@v7' .github/workflows/build-external-review-package.yml
+          grep -q 'retention-days: 30' .github/workflows/build-external-review-package.yml
+          grep -q 'External review pending' app.py
+          ! grep -q 'configure-aws-credentials\|aws s3\|OPENAI_API_KEY' .github/workflows/build-external-review-package.yml
+          ! grep -E -q 'Validation status: independently validated|independent_validation_approved = True' app.py

@@ -410,6 +410,7 @@ else:
 
 st.divider()
 st.subheader("2024 research findings report")
+st.caption("Validation status: internally tested · External review pending")
 try:
     report_manifest, report_files = load_research_report()
 except Exception as exc:
