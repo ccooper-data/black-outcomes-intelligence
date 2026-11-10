@@ -29,7 +29,7 @@
   "variance": "80 ACS person replicate weights; SDR factor 4/80",
   "testing": "two-sided normal test from the direct replicate-weight contrast standard error",
   "extreme_probability_reporting": "p and q values below positive IEEE-754 float precision are stored at the smallest positive float, flagged, and accompanied by their finite log10 values",
-  "multiplicity": "Benjamini-Hochberg FDR within each metric across 51 state comparisons; national q=p",
+  "multiplicity": "Benjamini-Hochberg FDR within each metric across non-suppressed state comparisons; suppressed states are not tested or included in the family; national q=p",
   "causal_interpretation": false,
   "rows": 208
 }
