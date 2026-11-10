@@ -28,6 +28,8 @@ def test_build_report_is_deterministic_and_complete(tmp_path):
     assert manifest["rows"] == 208
     assert manifest["publishable_rows"] == 180
     assert manifest["suppressed_rows"] == 28
+    assert manifest["unstable_contrast_rse_rows"] == 96
+    assert manifest["unstable_contrast_rse_fdr_significant_rows"] == 25
     assert manifest["causal_interpretation"] is False
     for name in [
         "research_findings.md",
@@ -47,6 +49,8 @@ def test_build_report_is_deterministic_and_complete(tmp_path):
     assert "suppressed states are not tested or included in the family" in markdown
     assert "not a new predictive holdout evaluation" in markdown
     assert "Signed contrasts are not suppressed for high or undefined contrast RSE" in markdown
+    assert "96 carry an unstable contrast-RSE marker" in markdown
+    assert "25 of those also meet the FDR rule" in markdown
     assert "the other component remains visible only when it independently passes" in markdown
 
     report_html = (first / "research_findings.html").read_text()
@@ -60,6 +64,7 @@ def test_build_report_is_deterministic_and_complete(tmp_path):
     assert appendix["state_name"].nunique() == 52
     suppressed = appendix[appendix["difference_is_suppressed"]]
     assert suppressed["difference_estimate"].isna().all()
+    assert int(appendix["difference_rse_unstable"].sum()) == 96
 
 
 def test_report_manifest_hashes_match_artifacts(tmp_path):

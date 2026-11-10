@@ -7,6 +7,7 @@ import csv
 import hashlib
 import html
 import json
+import math
 import numbers
 import re
 from pathlib import Path
@@ -29,6 +30,8 @@ REPORT_COLUMNS = [
     "women_estimate",
     "men_estimate",
     "difference_estimate",
+    "difference_relative_standard_error",
+    "difference_rse_unstable",
     "difference_ci95_lower",
     "difference_ci95_upper",
     "difference_q_value",
@@ -83,7 +86,8 @@ def _bool_series(series: pd.Series) -> pd.Series:
 
 
 def validate_inference(frame: pd.DataFrame, manifest: dict) -> None:
-    required = set(REPORT_COLUMNS) | {"comparison", "method"}
+    # The marker is derived for legacy snapshots; new Phase 7 releases publish it directly.
+    required = (set(REPORT_COLUMNS) - {"difference_rse_unstable"}) | {"comparison", "method"}
     missing = required - set(frame.columns)
     if missing:
         raise ValueError(f"Inference snapshot is missing columns: {sorted(missing)}")
@@ -97,6 +101,17 @@ def validate_inference(frame: pd.DataFrame, manifest: dict) -> None:
         raise ValueError("The source manifest must explicitly prohibit causal interpretation")
     if manifest.get("rows") != len(frame):
         raise ValueError("The source manifest row count does not match inference.csv")
+
+
+def _ensure_rse_marker(frame: pd.DataFrame) -> pd.DataFrame:
+    """Derive the Phase 9A marker when reading a pre-marker published snapshot."""
+    if "difference_rse_unstable" in frame:
+        return frame
+    result = frame.copy()
+    suppressed = _bool_series(result["difference_is_suppressed"])
+    rse = pd.to_numeric(result["difference_relative_standard_error"], errors="coerce")
+    result["difference_rse_unstable"] = ~suppressed & (rse.gt(0.30) | ~rse.map(math.isfinite))
+    return result
 
 
 def _format_value(value: float, style: str, *, signed: bool = False) -> str:
@@ -140,6 +155,7 @@ def _state_sections(frame: pd.DataFrame) -> list[str]:
     states = frame[frame["state"].notna()].copy()
     states["difference_is_suppressed"] = _bool_series(states["difference_is_suppressed"])
     states["difference_fdr_significant"] = _bool_series(states["difference_fdr_significant"])
+    states["difference_rse_unstable"] = _bool_series(states["difference_rse_unstable"])
     for metric, (label, style) in METRICS.items():
         subset = states[states["metric"] == metric]
         visible = subset[~subset["difference_is_suppressed"]]
@@ -157,17 +173,18 @@ def _state_sections(frame: pd.DataFrame) -> list[str]:
                 "Largest five absolute publishable differences, shown first to emphasize effect size and uncertainty "
                 "rather than statistical significance (a descriptive display, not an importance or causal ranking):",
                 "",
-                "| State | Difference | 95% CI | FDR evidence |",
-                "|---|---:|---:|---|",
+                "| State | Difference | 95% CI | Contrast RSE | FDR evidence |",
+                "|---|---:|---:|---|---|",
             ]
         )
         for _, row in selected.iterrows():
             evidence = f"q={_format_q(row)}" if bool(row["difference_fdr_significant"]) else f"not FDR-significant (q={_format_q(row)})"
+            rse_marker = "Unstable (>30%)" if bool(row["difference_rse_unstable"]) else "Within 30%"
             lines.append(
                 f"| {row['state_name']} | {_format_value(row['difference_estimate'], style, signed=True)} | "
                 f"{_format_value(row['difference_ci95_lower'], style, signed=True)} to "
                 f"{_format_value(row['difference_ci95_upper'], style, signed=True)} | "
-                f"{evidence} |"
+                f"{rse_marker} | {evidence} |"
             )
         lines.extend([
             "",
@@ -182,6 +199,11 @@ def _state_sections(frame: pd.DataFrame) -> list[str]:
 def build_markdown(frame: pd.DataFrame, source_hashes: dict[str, str]) -> str:
     visible = (~_bool_series(frame["difference_is_suppressed"])).sum()
     suppressed = _bool_series(frame["difference_is_suppressed"]).sum()
+    unstable = _bool_series(frame["difference_rse_unstable"]).sum()
+    unstable_significant = (
+        _bool_series(frame["difference_rse_unstable"])
+        & _bool_series(frame["difference_fdr_significant"]).eq(True)
+    ).sum()
     lines = [
         "# Black Outcomes Intelligence: 2024 Research Findings",
         "",
@@ -197,6 +219,10 @@ def build_markdown(frame: pd.DataFrame, source_hashes: dict[str, str]) -> str:
         "",
         f"The validated inference snapshot contains {len(frame)} comparisons: {visible} publishable and "
         f"{suppressed} suppressed under the project's transparent stability rules.",
+        "",
+        f"Among publishable contrasts, {unstable} carry an unstable contrast-RSE marker; "
+        f"{unstable_significant} of those also meet the FDR rule. The marker does not suppress a contrast and "
+        "does not override its estimate, standard error, confidence interval, or adjusted test.",
         "",
         "## National findings",
         "",
@@ -301,7 +327,7 @@ def markdown_to_html(markdown: str) -> str:
 
 
 def build_report(inference_path: Path, manifest_path: Path, output_dir: Path) -> dict:
-    frame = pd.read_csv(inference_path)
+    frame = _ensure_rse_marker(pd.read_csv(inference_path))
     manifest = json.loads(manifest_path.read_text())
     validate_inference(frame, manifest)
     frame["state_name"] = frame["state"].map(STATE_NAMES).fillna("National")
@@ -328,6 +354,11 @@ def build_report(inference_path: Path, manifest_path: Path, output_dir: Path) ->
         "rows": len(frame),
         "publishable_rows": int((~_bool_series(frame["difference_is_suppressed"])).sum()),
         "suppressed_rows": int(_bool_series(frame["difference_is_suppressed"]).sum()),
+        "unstable_contrast_rse_rows": int(_bool_series(frame["difference_rse_unstable"]).sum()),
+        "unstable_contrast_rse_fdr_significant_rows": int((
+            _bool_series(frame["difference_rse_unstable"])
+            & _bool_series(frame["difference_fdr_significant"]).eq(True)
+        ).sum()),
         "artifacts": {
             path.name: sha256(path) for path in [markdown_path, html_path, appendix_path]
         },

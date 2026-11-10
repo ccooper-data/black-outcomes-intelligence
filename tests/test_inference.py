@@ -56,6 +56,7 @@ def test_age_adjusted_inference_grain_and_contract():
         "difference_p_value_below_machine_precision", "difference_q_value",
         "difference_log10_q_value", "difference_q_value_below_machine_precision",
         "difference_fdr_significant",
+        "difference_relative_standard_error", "difference_rse_unstable",
         "difference_is_suppressed", "difference_suppression_reason",
     }
     assert required <= set(result.columns)
@@ -70,6 +71,7 @@ def test_direct_difference_uses_paired_replicates_and_keeps_precise_nulls():
     assert result["standard_error"] == 0
     assert result["p_value"] == 1
     assert result["is_suppressed"] is False
+    assert result["rse_unstable"] is True
 
 
 def test_benjamini_hochberg_is_monotone_and_order_preserving():

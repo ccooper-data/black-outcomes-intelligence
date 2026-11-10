@@ -45,6 +45,7 @@ jobs:
               "difference_p_value_below_machine_precision", "difference_q_value",
               "difference_log10_q_value", "difference_q_value_below_machine_precision",
               "difference_fdr_significant",
+              "difference_relative_standard_error", "difference_rse_unstable",
               "difference_is_suppressed", "difference_suppression_reason",
           }
           assert required <= set(frame)

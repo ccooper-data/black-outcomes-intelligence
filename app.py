@@ -386,6 +386,11 @@ else:
                 f"{format_value(inference_row['difference_ci95_lower'], inference_kind)}–"
                 f"{format_value(inference_row['difference_ci95_upper'], inference_kind)}"
             )
+            if bool(inference_row.get("difference_rse_unstable", False)):
+                st.warning(
+                    "Unstable contrast RSE (>30% or undefined). Use the displayed estimate, standard error, "
+                    "95% confidence interval, and adjusted test together; this marker does not suppress the contrast."
+                )
             if bool(inference_row["difference_fdr_significant"]):
                 q_text = (
                     f"q below floating-point precision; log10(q)={inference_row['difference_log10_q_value']:.3f}"
@@ -443,10 +448,16 @@ else:
         file_name="black_outcomes_2024_research_findings.md",
         mime="text/markdown",
     )
-    st.caption(
+    release_caption = (
         f"Release contains {report_manifest['publishable_rows']} publishable and "
-        f"{report_manifest['suppressed_rows']} suppressed comparisons. Artifact hashes are verified at load time."
+        f"{report_manifest['suppressed_rows']} suppressed comparisons."
     )
+    if "unstable_contrast_rse_rows" in report_manifest:
+        release_caption += (
+            f" {report_manifest['unstable_contrast_rse_rows']} publishable contrasts carry an unstable-RSE marker, "
+            f"including {report_manifest['unstable_contrast_rse_fdr_significant_rows']} that meet the FDR rule."
+        )
+    st.caption(f"{release_caption} Artifact hashes are verified at load time.")
 
 st.divider()
 st.subheader("2022–2024 trends and direct comparisons")
@@ -576,4 +587,4 @@ else:
 
 st.caption("Dashboard data are a versioned snapshot of aggregated Gold outputs; the public application requires no AWS credentials and has no access to Census microdata.")
 with st.expander("Methodology"):
-    st.markdown("Estimates use 2022–2024 ACS 1-Year PUMS person records, restricted to RAC1P=2 (Black alone) and age 18+. SEX=2 identifies Black women and SEX=1 identifies the Black men benchmark. Employment includes ESR codes 1, 2, 4, and 5 among records in the ESR labor-force universe. Point estimates use PWGTP. Standard errors use all 80 PWGTP replicate weights and the Census ACS SDR factor 4/80; intervals are estimate ± 1.96 SE (bounded to [0,1] for rates). Direct annual contrasts subtract the two groups' estimates and their corresponding replicate estimates. Phase 4 fits a survey-weighted logistic benchmark on 2022–2023 and evaluates fixed predictions on 2024. Phase 5 evaluates a fixed XGBoost challenger on the same 2024 records and computes paired replicate-weight loss improvements as logistic loss minus challenger loss. Performance intervals condition on the fitted models and do not include model-refitting uncertainty. Every published metric retains its unweighted sample size and weighted denominator. Component estimates are suppressed when unweighted n < 30, the denominator is nonpositive, or relative standard error exceeds 30%. Signed contrasts are not suppressed solely for high or undefined contrast RSE; their uncertainty is shown through the SE, 95% interval, and adjusted test. Phase 7 state FDR families include only non-suppressed tests. Cross-year changes, coefficients, feature importance, and the Phase 8 report are descriptive and are not causal claims or a new predictive holdout. No person-level predictions are published.")
+    st.markdown("Estimates use 2022–2024 ACS 1-Year PUMS person records, restricted to RAC1P=2 (Black alone) and age 18+. SEX=2 identifies Black women and SEX=1 identifies the Black men benchmark. Employment includes ESR codes 1, 2, 4, and 5 among records in the ESR labor-force universe. Point estimates use PWGTP. Standard errors use all 80 PWGTP replicate weights and the Census ACS SDR factor 4/80; intervals are estimate ± 1.96 SE (bounded to [0,1] for rates). Direct annual contrasts subtract the two groups' estimates and their corresponding replicate estimates. Phase 4 fits a survey-weighted logistic benchmark on 2022–2023 and evaluates fixed predictions on 2024. Phase 5 evaluates a fixed XGBoost challenger on the same 2024 records and computes paired replicate-weight loss improvements as logistic loss minus challenger loss. Performance intervals condition on the fitted models and do not include model-refitting uncertainty. Every published metric retains its unweighted sample size and weighted denominator. Component estimates are suppressed when unweighted n < 30, the denominator is nonpositive, or relative standard error exceeds 30%. Signed contrasts are not suppressed solely for high or undefined contrast RSE; those publishable contrasts carry an unstable-RSE marker, and their uncertainty is shown through the SE, 95% interval, and adjusted test. Phase 7 state FDR families include only non-suppressed tests. Cross-year changes, coefficients, feature importance, and the Phase 8 report are descriptive and are not causal claims or a new predictive holdout. No person-level predictions are published.")

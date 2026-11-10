@@ -104,14 +104,18 @@ def _difference(women: ReplicateEstimate, men: ReplicateEstimate,
         p_value = MIN_POSITIVE_FLOAT
         log10_p_value = float("-inf")
         p_underflow = True
+    relative_standard_error = (
+        float(se / abs(estimate)) if estimate != 0 else float("inf")
+    )
     return {
         "estimate": float(estimate),
         "standard_error": float(se),
         "ci95_lower": float(low),
         "ci95_upper": float(high),
-        "relative_standard_error": (
-            float(se / abs(estimate)) if estimate != 0 else float("inf")
-        ),
+        "relative_standard_error": relative_standard_error,
+        "rse_unstable": bool(not reasons and (
+            not np.isfinite(relative_standard_error) or relative_standard_error > 0.30
+        )),
         "unweighted_n": min(women.unweighted_n, men.unweighted_n),
         "weighted_denominator": min(women.weighted_denominator, men.weighted_denominator),
         "p_value": float(p_value),

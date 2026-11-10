@@ -21,6 +21,8 @@ def _package(tmp_path):
         "rows": 208,
         "publishable_rows": 180,
         "suppressed_rows": 28,
+        "unstable_contrast_rse_rows": 96,
+        "unstable_contrast_rse_fdr_significant_rows": 25,
         "artifacts": {name: hashlib.sha256(payload).hexdigest() for name, payload in artifacts.items()},
     }
     (tmp_path / "research_findings_manifest.json").write_text(json.dumps(manifest))
@@ -31,6 +33,7 @@ def test_public_report_package_hashes_are_verified(tmp_path):
     expected = _package(tmp_path)
     manifest, data = load_report_package(tmp_path)
     assert manifest["rows"] == 208
+    assert manifest["unstable_contrast_rse_rows"] == 96
     assert data == expected
 
 
