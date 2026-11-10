@@ -43,6 +43,10 @@ def test_build_report_is_deterministic_and_complete(tmp_path):
     assert "-8.9%" in markdown
     assert "not causal" in markdown.lower()
     assert "Largest five absolute publishable differences" in markdown
+    assert "shown first to emphasize effect size and uncertainty" in markdown
+    assert "suppressed states are not tested or included in the family" in markdown
+    assert "not a new predictive holdout evaluation" in markdown
+    assert "Signed contrasts are not suppressed for high or undefined contrast RSE" in markdown
     assert "the other component remains visible only when it independently passes" in markdown
 
     report_html = (first / "research_findings.html").read_text()

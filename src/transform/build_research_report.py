@@ -145,38 +145,37 @@ def _state_sections(frame: pd.DataFrame) -> list[str]:
         visible = subset[~subset["difference_is_suppressed"]]
         significant = visible[visible["difference_fdr_significant"]]
         suppressed = int(subset["difference_is_suppressed"].sum())
-        lines.extend(
-            [
-                f"### {label}",
-                "",
-                f"{len(significant)} of {len(visible)} publishable state comparisons meet the "
-                f"within-outcome 5% Benjamini–Hochberg FDR rule; {suppressed} are suppressed.",
-                "",
-            ]
-        )
-        if significant.empty:
-            lines.extend(["No state comparison meets the stated FDR rule.", ""])
+        lines.extend([f"### {label}", ""])
+        if visible.empty:
+            lines.extend([f"No state contrast is publishable; {suppressed} are suppressed.", ""])
             continue
-        selected = significant.assign(
-            absolute_difference=significant["difference_estimate"].abs()
+        selected = visible.assign(
+            absolute_difference=visible["difference_estimate"].abs()
         ).sort_values(["absolute_difference", "state_name"], ascending=[False, True]).head(5)
         lines.extend(
             [
-                "Largest five absolute publishable differences among FDR-significant states "
-                "(a transparent descriptive ranking, not an importance or causal ranking):",
+                "Largest five absolute publishable differences, shown first to emphasize effect size and uncertainty "
+                "rather than statistical significance (a descriptive display, not an importance or causal ranking):",
                 "",
-                "| State | Difference | 95% CI | q-value |",
-                "|---|---:|---:|---:|",
+                "| State | Difference | 95% CI | FDR evidence |",
+                "|---|---:|---:|---|",
             ]
         )
         for _, row in selected.iterrows():
+            evidence = f"q={_format_q(row)}" if bool(row["difference_fdr_significant"]) else f"not FDR-significant (q={_format_q(row)})"
             lines.append(
                 f"| {row['state_name']} | {_format_value(row['difference_estimate'], style, signed=True)} | "
                 f"{_format_value(row['difference_ci95_lower'], style, signed=True)} to "
                 f"{_format_value(row['difference_ci95_upper'], style, signed=True)} | "
-                f"{_format_q(row)} |"
+                f"{evidence} |"
             )
-        lines.append("")
+        lines.extend([
+            "",
+            f"After examining effect sizes, {len(significant)} of {len(visible)} tested, publishable state "
+            f"comparisons meet the within-outcome 5% Benjamini–Hochberg FDR rule; {suppressed} are suppressed "
+            "and excluded from the testing family.",
+            "",
+        ])
     return lines
 
 
@@ -208,8 +207,9 @@ def build_markdown(frame: pd.DataFrame, source_hashes: dict[str, str]) -> str:
         "",
         "## State findings",
         "",
-        "State tests are adjusted separately within each outcome across 51 comparisons. The complete "
-        "machine-readable appendix accompanies this report so the selected summaries can be audited.",
+        "State tests are adjusted separately within each outcome across non-suppressed comparisons; suppressed "
+        "states are not tested or included in the family. The complete machine-readable appendix accompanies "
+        "this report so the selected summaries can be audited.",
         "",
         *_state_sections(frame),
         "## Methods and limitations",
@@ -217,12 +217,13 @@ def build_markdown(frame: pd.DataFrame, source_hashes: dict[str, str]) -> str:
         "- Estimates use ACS person weights and all 80 person replicate weights with the Census SDR factor 4/80.",
         "- Direct age standardization uses the common 2024 national Black-adult age distribution across six age bands.",
         "- Women-minus-men differences and uncertainty are recomputed from paired replicate estimates.",
-        "- State p-values use Benjamini–Hochberg FDR adjustment within each outcome; national q-values equal p-values.",
-        "- Cells are suppressed when component stability, sample-size, denominator, or finite-uncertainty rules fail.",
+        "- State p-values use Benjamini–Hochberg FDR adjustment within each outcome across non-suppressed state tests; national q-values equal p-values.",
+        "- Component estimates are suppressed for sample-size, denominator, or RSE failures. Signed contrasts are not suppressed for high or undefined contrast RSE; their uncertainty is reported with the SE, 95% CI, and adjusted test.",
         "- If one component is suppressed, the direct comparison is suppressed; the other component remains visible only when it independently passes every publication rule.",
         "- ACS PUMS is cross-sectional observational data. Results are associations, not causal effects.",
         "- Race, sex, income, employment, education, and marital-status variables follow the source-data definitions and do not capture every relevant identity or structural factor.",
         "- Cross-year change is not tested here because the available design does not provide cross-year covariance.",
+        "- The 2024 release was previously used for Phase 4 and Phase 5 model evaluation. This descriptive report is not a new predictive holdout evaluation.",
         "",
         "## Provenance",
         "",

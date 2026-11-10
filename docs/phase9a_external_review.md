@@ -6,6 +6,8 @@ The manual workflow performs independent recalculations without importing the pr
 
 The automated checks cover the release grain, age-standard weight sum, public suppression/redaction, 95% confidence intervals, state-level Benjamini–Hochberg adjustment, source lineage, and noncausal claims contract. These checks establish review readiness; they are not a substitute for expert judgment about the estimands, survey design, or interpretation.
 
+Component estimates use the 30% RSE suppression rule. Signed contrasts do not: their RSE becomes unstable near zero, so contrast uncertainty is communicated with the SE, 95% interval, and adjusted test, while a failed component or nonfinite contrast still suppresses the comparison. BH families contain only non-suppressed state tests. The package is descriptive and is not a new predictive holdout because the 2024 release was already used for Phase 4 and Phase 5 evaluation.
+
 The reviewer package contains:
 
 - `README.md`: scope and use instructions;

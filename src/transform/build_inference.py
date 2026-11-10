@@ -222,7 +222,10 @@ def build_inference(frame: pd.DataFrame, year: int = YEAR) -> tuple[pd.DataFrame
             "p and q values below positive IEEE-754 float precision are stored at the smallest positive float, "
             "flagged, and accompanied by their finite log10 values"
         ),
-        "multiplicity": "Benjamini-Hochberg FDR within each metric across 51 state comparisons; national q=p",
+        "multiplicity": (
+            "Benjamini-Hochberg FDR within each metric across non-suppressed state comparisons; "
+            "suppressed states are not tested or included in the family; national q=p"
+        ),
         "causal_interpretation": False,
         "rows": len(result),
     }
