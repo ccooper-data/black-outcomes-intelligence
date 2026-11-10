@@ -10,6 +10,8 @@ This report describes age-adjusted differences in marriage, bachelor's-or-higher
 
 The validated inference snapshot contains 208 comparisons: 180 publishable and 28 suppressed under the project's transparent stability rules.
 
+Among publishable contrasts, 96 carry an unstable contrast-RSE marker; 25 of those also meet the FDR rule. The marker does not suppress a contrast and does not override its estimate, standard error, confidence interval, or adjusted test.
+
 ## National findings
 
 | Outcome | Black women | Black men | Women minus men (95% CI) | Multiplicity-adjusted evidence |
@@ -29,13 +31,13 @@ State tests are adjusted separately within each outcome across non-suppressed co
 
 Largest five absolute publishable differences, shown first to emphasize effect size and uncertainty rather than statistical significance (a descriptive display, not an importance or causal ranking):
 
-| State | Difference | 95% CI | FDR evidence |
-|---|---:|---:|---|
-| Maine | -17.0% | -34.9% to +0.9% | not FDR-significant (q=0.0703) |
-| Hawaii | -16.3% | -35.7% to +3.1% | not FDR-significant (q=0.109) |
-| New Mexico | -16.0% | -28.8% to -3.2% | q=0.0188 |
-| Minnesota | -13.6% | -19.6% to -7.5% | q=1.91e-05 |
-| Utah | -12.7% | -25.4% to -0.0% | not FDR-significant (q=0.0571) |
+| State | Difference | 95% CI | Contrast RSE | FDR evidence |
+|---|---:|---:|---|---|
+| Maine | -17.0% | -34.9% to +0.9% | Unstable (>30%) | not FDR-significant (q=0.0703) |
+| Hawaii | -16.3% | -35.7% to +3.1% | Unstable (>30%) | not FDR-significant (q=0.109) |
+| New Mexico | -16.0% | -28.8% to -3.2% | Unstable (>30%) | q=0.0188 |
+| Minnesota | -13.6% | -19.6% to -7.5% | Within 30% | q=1.91e-05 |
+| Utah | -12.7% | -25.4% to -0.0% | Unstable (>30%) | not FDR-significant (q=0.0571) |
 
 After examining effect sizes, 37 of 44 tested, publishable state comparisons meet the within-outcome 5% Benjamini–Hochberg FDR rule; 7 are suppressed and excluded from the testing family.
 
@@ -43,13 +45,13 @@ After examining effect sizes, 37 of 44 tested, publishable state comparisons mee
 
 Largest five absolute publishable differences, shown first to emphasize effect size and uncertainty rather than statistical significance (a descriptive display, not an importance or causal ranking):
 
-| State | Difference | 95% CI | FDR evidence |
-|---|---:|---:|---|
-| West Virginia | +12.7% | +3.2% to +22.2% | q=0.016 |
-| Oklahoma | +11.5% | +6.0% to +17.0% | q=0.000104 |
-| Rhode Island | +10.5% | -1.7% to +22.7% | not FDR-significant (q=0.15) |
-| Maine | +9.7% | -7.3% to +26.6% | not FDR-significant (q=0.363) |
-| Arkansas | +9.5% | +5.6% to +13.4% | q=4.43e-06 |
+| State | Difference | 95% CI | Contrast RSE | FDR evidence |
+|---|---:|---:|---|---|
+| West Virginia | +12.7% | +3.2% to +22.2% | Unstable (>30%) | q=0.016 |
+| Oklahoma | +11.5% | +6.0% to +17.0% | Within 30% | q=0.000104 |
+| Rhode Island | +10.5% | -1.7% to +22.7% | Unstable (>30%) | not FDR-significant (q=0.15) |
+| Maine | +9.7% | -7.3% to +26.6% | Unstable (>30%) | not FDR-significant (q=0.363) |
+| Arkansas | +9.5% | +5.6% to +13.4% | Within 30% | q=4.43e-06 |
 
 After examining effect sizes, 25 of 44 tested, publishable state comparisons meet the within-outcome 5% Benjamini–Hochberg FDR rule; 7 are suppressed and excluded from the testing family.
 
@@ -57,13 +59,13 @@ After examining effect sizes, 25 of 44 tested, publishable state comparisons mee
 
 Largest five absolute publishable differences, shown first to emphasize effect size and uncertainty rather than statistical significance (a descriptive display, not an importance or causal ranking):
 
-| State | Difference | 95% CI | FDR evidence |
-|---|---:|---:|---|
-| West Virginia | +17.0% | +6.9% to +27.2% | q=0.00511 |
-| Rhode Island | -15.2% | -26.4% to -4.0% | q=0.028 |
-| Minnesota | -10.4% | -16.5% to -4.3% | q=0.00511 |
-| Utah | -10.3% | -21.4% to +0.7% | not FDR-significant (q=0.156) |
-| Delaware | +8.7% | +1.9% to +15.6% | q=0.0389 |
+| State | Difference | 95% CI | Contrast RSE | FDR evidence |
+|---|---:|---:|---|---|
+| West Virginia | +17.0% | +6.9% to +27.2% | Unstable (>30%) | q=0.00511 |
+| Rhode Island | -15.2% | -26.4% to -4.0% | Unstable (>30%) | q=0.028 |
+| Minnesota | -10.4% | -16.5% to -4.3% | Within 30% | q=0.00511 |
+| Utah | -10.3% | -21.4% to +0.7% | Unstable (>30%) | not FDR-significant (q=0.156) |
+| Delaware | +8.7% | +1.9% to +15.6% | Unstable (>30%) | q=0.0389 |
 
 After examining effect sizes, 14 of 44 tested, publishable state comparisons meet the within-outcome 5% Benjamini–Hochberg FDR rule; 7 are suppressed and excluded from the testing family.
 
@@ -71,13 +73,13 @@ After examining effect sizes, 14 of 44 tested, publishable state comparisons mee
 
 Largest five absolute publishable differences, shown first to emphasize effect size and uncertainty rather than statistical significance (a descriptive display, not an importance or causal ranking):
 
-| State | Difference | 95% CI | FDR evidence |
-|---|---:|---:|---|
-| New Hampshire | +$28,724 | +$10,877 to +$46,571 | q=0.00283 |
-| Hawaii | -$25,234 | -$53,681 to +$3,214 | not FDR-significant (q=0.113) |
-| Kansas | -$16,825 | -$26,979 to -$6,670 | q=0.00214 |
-| Washington | -$16,501 | -$25,148 to -$7,854 | q=0.000405 |
-| Colorado | -$16,486 | -$23,883 to -$9,089 | q=3.45e-05 |
+| State | Difference | 95% CI | Contrast RSE | FDR evidence |
+|---|---:|---:|---|---|
+| New Hampshire | +$28,724 | +$10,877 to +$46,571 | Unstable (>30%) | q=0.00283 |
+| Hawaii | -$25,234 | -$53,681 to +$3,214 | Unstable (>30%) | not FDR-significant (q=0.113) |
+| Kansas | -$16,825 | -$26,979 to -$6,670 | Unstable (>30%) | q=0.00214 |
+| Washington | -$16,501 | -$25,148 to -$7,854 | Within 30% | q=0.000405 |
+| Colorado | -$16,486 | -$23,883 to -$9,089 | Within 30% | q=3.45e-05 |
 
 After examining effect sizes, 29 of 44 tested, publishable state comparisons meet the within-outcome 5% Benjamini–Hochberg FDR rule; 7 are suppressed and excluded from the testing family.
 
@@ -98,5 +100,5 @@ After examining effect sizes, 29 of 44 tested, publishable state comparisons mee
 
 This report was generated deterministically from the repository's public aggregate inference snapshot. No Census microdata, suppressed estimates, person-level predictions, or generative-AI-written findings are included.
 
-- `inference.csv` SHA-256: `9a2b72adb4a21c1402053270cff2781ce6cec2db29753e487d74da18fa22e12a`
+- `inference.csv` SHA-256: `311360ed187a603b436b49f358395d38c5eb3a69f9da1e855bc4385686ee513c`
 - `inference_manifest.json` SHA-256: `85447607ed837343284fe9853744e7595c4c48c1939a108ade98b1c194268aaa`

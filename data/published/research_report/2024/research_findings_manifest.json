@@ -1,17 +1,19 @@
 {
   "artifacts": {
-    "research_findings.html": "00bd4755afeec9ee18103990501c62317afebabba556b79d238392acc26421d5",
-    "research_findings.md": "41fd91bb3e352915531bbe8b7cc392ecb3c636cba7f5cc7752f9a3dfb530426c",
-    "research_findings_appendix.csv": "ed7e3afd0f63cc8f541e2aeab2e339e4032c693c5944b87508ad3662cc421b69"
+    "research_findings.html": "049f8e9c3c59ebac2a4ce637b0d8271155be56a7895fedbb8d624820ee35e990",
+    "research_findings.md": "87f558654bd39ca9ec8dc09dba796202c412c2c61edd70c49ebfd1db1ce95588",
+    "research_findings_appendix.csv": "2fcdb0fa260646bd1581dad49c89fc8ced749b183cbd81ed72c6b6c601231e4a"
   },
   "causal_interpretation": false,
   "phase": 8,
   "publishable_rows": 180,
   "rows": 208,
   "source_hashes": {
-    "inference.csv": "9a2b72adb4a21c1402053270cff2781ce6cec2db29753e487d74da18fa22e12a",
+    "inference.csv": "311360ed187a603b436b49f358395d38c5eb3a69f9da1e855bc4385686ee513c",
     "inference_manifest.json": "85447607ed837343284fe9853744e7595c4c48c1939a108ade98b1c194268aaa"
   },
   "suppressed_rows": 28,
-  "survey_year": 2024
+  "survey_year": 2024,
+  "unstable_contrast_rse_fdr_significant_rows": 25,
+  "unstable_contrast_rse_rows": 96
 }
