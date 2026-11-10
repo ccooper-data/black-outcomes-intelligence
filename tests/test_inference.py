@@ -47,6 +47,8 @@ def test_age_adjusted_inference_grain_and_contract():
     assert not result.duplicated(["state", "metric"], keep=False).any()
     assert math.isclose(sum(manifest["age_standard_weights"].values()), 1.0)
     assert manifest["multiplicity"].startswith("Benjamini-Hochberg")
+    assert "non-suppressed state comparisons" in manifest["multiplicity"]
+    assert "suppressed states are not tested" in manifest["multiplicity"]
     required = {
         "women_estimate", "men_estimate", "difference_estimate",
         "difference_standard_error", "difference_ci95_lower", "difference_ci95_upper",

@@ -6,9 +6,11 @@ Phase 8 converts the validated Phase 7 public aggregate snapshot into determinis
 
 The builder accepts only the 208-row 2024 Phase 7 inference grain: one national and 51 state rows for each of four outcomes. It verifies the unique state-outcome grain, required statistical fields, source manifest row count, and the explicit prohibition on causal interpretation.
 
-The report includes all four national comparisons. For each outcome, its state narrative reports the count of publishable FDR-significant comparisons and the count suppressed. A compact table shows the five largest absolute differences among publishable FDR-significant states. This is disclosed as a descriptive display rule, not a causal, practical-importance, or overall state ranking. The complete 208-row aggregate appendix accompanies the report.
+The report includes all four national comparisons. For each outcome, a compact table leads with the five largest absolute publishable differences and their intervals, regardless of significance, before reporting the FDR-significant and suppressed counts. This ordering keeps effect magnitude and uncertainty ahead of significance counts. It is a descriptive display rule, not a causal, practical-importance, or overall state ranking. The complete 208-row aggregate appendix accompanies the report.
 
 Suppressed direct comparisons retain flags, reasons, and denominator metadata while their difference estimates, intervals, and probabilities remain blank. A component estimate is also blank when that component fails its own publication rules; the other component may remain visible when it independently passes every rule. Report text is template-generated from validated records; generative AI does not author or embellish findings.
+
+The report is descriptive, not a predictive-validation artifact. The 2024 ACS release was already used for Phase 4 and Phase 5 evaluation, so Phase 8 does not describe it as a new or untouched model holdout.
 
 ## Reproducibility and release gate
 

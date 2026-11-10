@@ -35,11 +35,20 @@ def test_build_review_package_is_deterministic_and_pending(tmp_path):
     assert manifest["independent_validation_claimed"] is False
     assert {p.name: p.read_bytes() for p in first.iterdir()} == {p.name: p.read_bytes() for p in second.iterdir()}
     results = json.loads((first / "validation_results.json").read_text())
-    assert results["summary"] == {"failed": 0, "passed": 7, "total": 7}
+    assert results["summary"] == {"failed": 0, "passed": 9, "total": 9}
     assert all(item["passed"] for item in results["checks"])
+    policy = next(item for item in results["checks"] if item["check"] == "component_and_contrast_suppression_policy")
+    flags = next(item for item in results["checks"] if item["check"] == "significance_flags")
+    assert "96 visible signed contrasts" in policy["evidence"]
+    assert "105 of 176 visible state contrasts" in flags["evidence"]
     package = json.loads((first / "package_manifest.json").read_text())
     for name, expected in package["artifacts"].items():
         assert hashlib.sha256((first / name).read_bytes()).hexdigest() == expected
+    readme = (first / "README.md").read_text()
+    checklist = (first / "review_checklist.md").read_text()
+    assert "not a new predictive holdout" in readme
+    assert "contrast RSE is disclosed but is not itself a suppression rule" in checklist
+    assert "only non-suppressed, tested states" in checklist
 
 
 def test_reviewer_template_cannot_claim_approval(tmp_path):

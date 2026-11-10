@@ -12,13 +12,13 @@ Python, SQL, AWS S3, AWS Glue, Athena, Terraform, Docker, GitHub Actions. Planne
 
 Population totals, rates, and means use `PWGTP`. Sampling variances use all 80 ACS person replicate weights (`PWGTP1`–`PWGTP80`) and the Census successive-difference-replication formula `SE = sqrt((4/80) * Σ(estimate_r - estimate)^2)`. Ratios and means recompute both numerator and denominator for every replicate. Published 95% confidence intervals are the point estimate ± `1.959964 × SE`, clipped to `[0, 1]` only for proportions.
 
-Every metric carries `unweighted_n` and `weighted_denominator`. A value is marked `is_suppressed` and excluded from dashboard ranking when any of these transparent rules apply:
+Every component estimate carries `unweighted_n` and `weighted_denominator`. A component estimate is marked `is_suppressed` and excluded from dashboard ranking when any of these transparent rules apply:
 
 - unweighted denominator/sample count is below 30;
 - weighted denominator is nonpositive;
 - relative standard error (`SE / abs(estimate)`) exceeds 30% or cannot be calculated.
 
-Suppressed point estimates remain only in private Gold for auditability. Public S3 and repository snapshots blank the estimate, standard error, confidence limits, and RSE before the dashboard renders “Suppressed.” These thresholds are a project publication policy, not a Census endorsement. See [docs/statistical_methodology.md](docs/statistical_methodology.md).
+Suppressed point estimates remain only in private Gold for auditability. Public S3 and repository snapshots blank the estimate, standard error, confidence limits, and RSE before the dashboard renders “Suppressed.” Signed differences are suppressed when a component fails its rules or when contrast uncertainty is nonfinite, but not merely because `SE / abs(difference)` exceeds 30% or is undefined near zero. Contrast uncertainty remains visible through its SE, 95% confidence interval, and adjusted test. These thresholds are a project publication policy, not a Census endorsement. See [docs/statistical_methodology.md](docs/statistical_methodology.md).
 
 ## Reconciliation and testing
 

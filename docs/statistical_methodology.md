@@ -20,7 +20,9 @@ The Census [2020–2024 PUMS Accuracy documentation](https://www2.census.gov/pro
 
 ## Publication suppression
 
-Each metric includes its point estimate, standard error, 95% limits, relative standard error, unweighted sample count, weighted denominator, suppression flag, and machine-readable reason. The public view suppresses a metric if unweighted n is below 30, its denominator is nonpositive, or RSE exceeds 30%/is undefined. Rules are evaluated per metric because income and universe denominators can differ. Suppression never substitutes a zero and never fabricates an estimate.
+Each component estimate includes its point estimate, standard error, 95% limits, relative standard error, unweighted sample count, weighted denominator, suppression flag, and machine-readable reason. The public view suppresses a component estimate if unweighted n is below 30, its denominator is nonpositive, or RSE exceeds 30%/is undefined. Rules are evaluated per metric because income and universe denominators can differ. Suppression never substitutes a zero and never fabricates an estimate.
+
+A signed contrast is suppressed when either component is suppressed, a component sample or denominator fails its rule, or the contrast or its standard error is nonfinite. The 30% RSE threshold is not applied to signed contrasts because `SE / abs(difference)` is unstable and undefined as a valid difference approaches zero. The contrast RSE remains in private audit output; public uncertainty is communicated with the contrast SE, 95% confidence interval, and multiplicity-adjusted test. This distinction is a deliberate publication rule, not evidence that a high-RSE contrast is precise.
 
 Complete suppressed statistics are retained in private Gold for auditability. The publication transform replaces their point estimate, standard error, confidence limits, and RSE with null values before writing public S3 objects or repository snapshots. Reconciliation derives this redacted projection independently and fails if a suppressed statistic leaks into a public candidate.
 

@@ -101,6 +101,18 @@ def validate_public_release(inference_path: Path, inference_manifest_path: Path,
     ))
 
     visible = frame.loc[~suppressed].copy()
+    components_stable = (
+        visible[["women_unweighted_n", "men_unweighted_n"]].ge(30).all().all()
+        and visible[["women_relative_standard_error", "men_relative_standard_error"]].le(0.30).all().all()
+    )
+    high_contrast_rse = visible["difference_relative_standard_error"].gt(0.30) | ~np.isfinite(
+        visible["difference_relative_standard_error"]
+    )
+    checks.append(_check(
+        "component_and_contrast_suppression_policy",
+        components_stable and int(high_contrast_rse.sum()) == 96,
+        f"all visible components pass n/RSE rules; {int(high_contrast_rse.sum())} visible signed contrasts exceed 30% RSE or have undefined RSE and remain visible by design",
+    ))
     rate = visible["metric"].str.endswith("_rate")
     expected_low = visible["difference_estimate"] - Z_95 * visible["difference_standard_error"]
     expected_high = visible["difference_estimate"] + Z_95 * visible["difference_standard_error"]
@@ -132,6 +144,15 @@ def validate_public_release(inference_path: Path, inference_manifest_path: Path,
         "multiplicity_control",
         bh_ok and national_ok,
         f"independently recomputed BH-FDR for {bh_rows} visible state comparisons; national q=p",
+    ))
+    expected_flags = visible["difference_q_value"].le(0.05)
+    observed_flags = visible["difference_fdr_significant"].astype(str).str.lower().eq("true")
+    state_flags = int(observed_flags[visible["state"].notna()].sum())
+    national_flags = int(observed_flags[visible["state"].isna()].sum())
+    checks.append(_check(
+        "significance_flags",
+        observed_flags.equals(expected_flags),
+        f"flags agree with q<=0.05: {state_flags} of {int(visible['state'].notna().sum())} visible state contrasts and {national_flags} of 4 national contrasts",
     ))
     checks.append(_check(
         "claims_contract",
@@ -169,7 +190,7 @@ def build_package(inference_path: Path, inference_manifest_path: Path,
     (output_dir / "README.md").write_text(
         "# Black Outcomes Intelligence — Phase 9A external-review package\n\n"
         "Status: **external review pending**. Passing automated checks is internal validation and is not independent approval.\n\n"
-        "This package includes the exact reviewed public inference snapshot and its manifests, records cryptographic source hashes, and provides independent recalculations of release grain, age-standard weights, suppression/redaction, 95% intervals, and Benjamini–Hochberg correction. It does not contain ACS person microdata.\n\n"
+        "This package includes the exact reviewed public inference snapshot and its manifests, records cryptographic source hashes, and provides independent recalculations of release grain, age-standard weights, suppression/redaction, 95% intervals, and Benjamini–Hochberg correction. It does not contain ACS person microdata. The package is descriptive: because the 2024 release was previously used in Phase 4 and Phase 5 model evaluation, it is not a new predictive holdout.\n\n"
         "A qualified reviewer should use `review_checklist.md`, record findings in `reviewer_findings.json`, and sign only after resolving material issues. Repository maintainers must separately verify reviewer identity and qualifications before changing the public status.\n"
     )
     (output_dir / "review_checklist.md").write_text(
@@ -179,8 +200,8 @@ def build_package(inference_path: Path, inference_manifest_path: Path,
         "- [ ] Reproduce SDR variance, ratio/mean replicate recomputation, and 95% intervals.\n"
         "- [ ] Evaluate direct age standardization and replicate-specific standard weights.\n"
         "- [ ] Reproduce women-minus-men paired replicate contrasts and inferential tests.\n"
-        "- [ ] Reproduce within-outcome state Benjamini–Hochberg FDR control.\n"
-        "- [ ] Assess suppression thresholds, public redaction, denominators, and small-sample disclosures.\n"
+        "- [ ] Reproduce within-outcome state Benjamini–Hochberg FDR control using only non-suppressed, tested states in each family.\n"
+        "- [ ] Assess component suppression thresholds and confirm that contrast RSE is disclosed but is not itself a suppression rule.\n"
         "- [ ] Review held-out predictive validation and the stated model-refitting limitation.\n"
         "- [ ] Confirm repeated cross-sectional and noncausal language throughout.\n"
         "- [ ] Record every finding, severity, evidence location, and disposition.\n"
